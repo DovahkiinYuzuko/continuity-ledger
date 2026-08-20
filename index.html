@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>積んでたら台帳</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<svg style="display:none">
+  <symbol id="icon-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M10.268 21a2 2 0 0 0 3.464 0" />
+    <path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326" />
+  </symbol>
+  <symbol id="icon-file-spreadsheet" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" />
+    <path d="M14 2v5a1 1 0 0 0 1 1h5" />
+    <path d="M8 13h2" /><path d="M14 13h2" /><path d="M8 17h2" /><path d="M14 17h2" />
+  </symbol>
+  <symbol id="icon-braces" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1" />
+    <path d="M16 21h1a2 2 0 0 0 2-2v-5c0-1.1.9-2 2-2a2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1" />
+  </symbol>
+  <symbol id="icon-upload" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 3v12" /><path d="m17 8-5-5-5 5" />
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+  </symbol>
+  <symbol id="icon-share" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" />
+    <line x1="8.59" x2="15.42" y1="13.51" y2="17.49" /><line x1="15.41" x2="8.59" y1="6.51" y2="10.49" />
+  </symbol>
+  <symbol id="icon-pencil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" />
+    <path d="m15 5 4 4" />
+  </symbol>
+  <symbol id="icon-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+  </symbol>
+  <symbol id="icon-chevron-left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="m15 18-6-6 6-6" />
+  </symbol>
+  <symbol id="icon-chevron-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="m9 18 6-6-6-6" />
+  </symbol>
+  <symbol id="icon-rotate-ccw" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" />
+  </symbol>
+  <symbol id="icon-calendar-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M8 2v3" /><path d="M16 2v3" /><rect x="3" y="3" width="18" height="18" rx="2" />
+    <path d="M3 9h18" /><path d="m9 15 2 2 4-4" />
+  </symbol>
+  <symbol id="icon-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M5 12h14" /><path d="M12 5v14" />
+  </symbol>
+  <symbol id="icon-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M20 6 9 17l-5-5" />
+  </symbol>
+  <symbol id="icon-trash-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M10 11v6" /><path d="M14 11v6" />
+    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+    <path d="M3 6h18" /><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+  </symbol>
+</svg>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">CONTINUITY LEDGER</div>
+    <h1>積んでたら台帳</h1>
+    <div class="sub">続けてたら、今頃これだけ。ただの記帳。</div>
+    <div class="header-tools">
+      <button class="tool-btn" id="notifyBtn"><svg class="icon"><use href="#icon-bell"/></svg> 通知 <span id="notifyState">オフ</span></button>
+      <button class="tool-btn" id="exportBtn"><svg class="icon"><use href="#icon-file-spreadsheet"/></svg> CSV</button>
+      <button class="tool-btn" id="exportJsonBtn"><svg class="icon"><use href="#icon-braces"/></svg> JSON</button>
+      <button class="tool-btn" id="importBtn"><svg class="icon"><use href="#icon-upload"/></svg> JSON読込</button>
+      <input type="file" id="importFile" accept="application/json" style="display:none">
+    </div>
+  </header>
+
+  <div class="grand-total" id="grandTotal"></div>
+
+  <div id="ledgerList" class="ledger-list"></div>
+
+  <button class="add-toggle" id="addToggle">＋ 新しい「もしあの日から」を記帳する</button>
+
+  <div class="form-card" id="formCard">
+    <div class="form-title" id="formTitle">記帳内容</div>
+    <div class="field-row">
+      <div class="field full">
+        <label>呼び名（任意）</label>
+        <input type="text" id="fName" placeholder="例：コーヒー我慢分、コツコツ用">
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>開始日</label>
+        <input type="date" id="fStart">
+      </div>
+      <div class="field">
+        <label>1回あたりの額</label>
+        <input type="text" inputmode="decimal" id="fAmount" placeholder="1000">
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>通貨単位</label>
+        <input type="text" id="fCurrency" placeholder="円" value="円">
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field full">
+        <label>間隔のタイプ</label>
+        <select id="fIntervalType">
+          <option value="days">n日ごと</option>
+          <option value="monthlyDate">毎月d日</option>
+          <option value="monthlyLast">毎月末日</option>
+        </select>
+      </div>
+    </div>
+    <div class="field-row" id="daysIntervalRow">
+      <div class="field full">
+        <label>何日ごと</label>
+        <div class="interval-row">
+          <input type="number" id="fInterval" min="1" value="1">
+          <span class="interval-unit-label">日ごと</span>
+        </div>
+      </div>
+    </div>
+    <div class="field-row" id="monthlyDateRow" style="display:none">
+      <div class="field full">
+        <label>毎月何日</label>
+        <div class="interval-row">
+          <span class="interval-unit-label">毎月</span>
+          <input type="number" id="fMonthDay" min="1" max="31" value="1">
+          <span class="interval-unit-label">日（31日超の月は月末扱い）</span>
+        </div>
+        <div class="shortcut-row">
+          <button type="button" class="shortcut-btn" data-day="1">月始め</button>
+          <button type="button" class="shortcut-btn" data-day="15">月半ば</button>
+          <button type="button" class="shortcut-btn" data-day="31">月末</button>
+        </div>
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field full">
+        <label>色タグ</label>
+        <div class="color-picker" id="colorPicker"></div>
+        <input type="color" id="customColor" class="custom-color-hidden-input">
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn-secondary" id="cancelBtn">やめる</button>
+      <button class="btn-primary" id="saveBtn">記帳する</button>
+    </div>
+  </div>
+
+  <div class="year-summary" id="yearSummary"></div>
+
+  <div class="cal-header">
+    <div class="cal-title-row">
+      <select id="jumpYear" class="jump-select"></select>
+      <select id="jumpMonth" class="jump-select"></select>
+      <button id="todayBtn" class="tool-btn" title="今月に戻る"><svg class="icon"><use href="#icon-rotate-ccw"/></svg></button>
+      <button id="yearViewBtn" class="tool-btn" title="年間プレビュー"><svg class="icon"><use href="#icon-calendar-check"/></svg></button>
+    </div>
+    <div class="cal-nav">
+      <button id="prevMonth"><svg class="icon"><use href="#icon-chevron-left"/></svg></button>
+      <div class="cal-title" id="calTitle">2026年 8月</div>
+      <button id="nextMonth"><svg class="icon"><use href="#icon-chevron-right"/></svg></button>
+    </div>
+  </div>
+  <div class="cal-grid" id="calGrid"></div>
+  <div class="year-grid" id="yearGrid" style="display:none"></div>
+
+  <div class="day-detail" id="dayDetail">
+    <div class="day-detail-date" id="dayDetailDate"></div>
+    <div id="dayDetailBody"></div>
+    <div class="interrupt-row" id="interruptRow">
+      <div class="interrupt-label">この日に割り込みで足す</div>
+      <div class="interrupt-form">
+        <select id="interruptScenario"></select>
+        <input type="number" id="interruptAmount" placeholder="金額" step="any">
+        <button id="interruptAdd">足す</button>
+      </div>
+    </div>
+  </div>
+
+  <footer>すべての記帳はこの端末の中だけに残ります</footer>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

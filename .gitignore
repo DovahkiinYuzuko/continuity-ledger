@@ -1,0 +1,11 @@
+# project:積んでたら台帳
+*
+!.gitignore
+# ---AUTO-Generated---
+# .gitignores/root.gitignore
+!README.md
+!NOTICE.md
+
+!*.js
+!index.html
+!style.css
