@@ -1,41 +1,90 @@
-let currentLocale = 'ja';
+const FALLBACK_LOCALE = 'en';
+
+let currentLocale = FALLBACK_LOCALE;
 let dictionary = {};
 
 /**
- * ブラウザ言語またはURLパラメータからロケールを検出して初期化
+ * オブジェクトのディープマージ（欠損キーをフォールバック辞書の値で補完する）
+ * @param {object} base フォールバック辞書
+ * @param {object} override ターゲット言語の辞書
+ * @returns {object}
  */
-export async function initI18n() {
+function deepMerge(base, override) {
+  const result = { ...base };
+  for (const key of Object.keys(override || {})) {
+    if (
+      override[key] &&
+      typeof override[key] === 'object' &&
+      !Array.isArray(override[key]) &&
+      base[key] &&
+      typeof base[key] === 'object' &&
+      !Array.isArray(base[key])
+    ) {
+      result[key] = deepMerge(base[key], override[key]);
+    } else {
+      result[key] = override[key];
+    }
+  }
+  return result;
+}
+
+/**
+ * ブラウザ言語またはURLパラメータから言語コード（例: 'ja', 'en', 'ko', 'fr' など）を抽出
+ * @returns {string}
+ */
+function detectTargetLocale() {
   const params = new URLSearchParams(window.location.search);
   const paramLang = params.get('lang');
-  
-  const browserLang = (navigator.languages && navigator.languages[0]) || navigator.language || 'ja';
-  let targetLocale = 'ja';
-
-  if (paramLang && (paramLang === 'ja' || paramLang === 'en' || paramLang === 'ko')) {
-    targetLocale = paramLang;
-  } else if (browserLang.startsWith('ko')) {
-    targetLocale = 'ko';
-  } else if (browserLang.startsWith('en')) {
-    targetLocale = 'en';
-  } else {
-    targetLocale = 'ja';
+  if (paramLang) {
+    return paramLang.trim().toLowerCase().split('-')[0];
   }
 
-  currentLocale = targetLocale;
+  const rawLang = (navigator.languages && navigator.languages[0]) || navigator.language || FALLBACK_LOCALE;
+  return rawLang.trim().toLowerCase().split('-')[0];
+}
 
+/**
+ * 指定した言語のJSONファイルを非同期取得
+ * @param {string} locale
+ * @returns {Promise<object|null>}
+ */
+async function fetchLocaleJson(locale) {
   try {
-    const res = await fetch(`./locales/${currentLocale}.json`);
-    if (!res.ok) throw new Error(`HTTP error ${res.status}`);
-    dictionary = await res.json();
-  } catch (err) {
-    console.warn(`[i18n] Failed to load ./locales/${currentLocale}.json, falling back to ja:`, err);
-    try {
-      const fallbackRes = await fetch('./locales/ja.json');
-      dictionary = await fallbackRes.json();
-      currentLocale = 'ja';
-    } catch (fallbackErr) {
-      console.error('[i18n] Failed to load fallback locale:', fallbackErr);
-      dictionary = {};
+    const res = await fetch(`./locales/${locale}.json`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
+ * i18nの初期化
+ * 1. フォールバック言語（en）をロード
+ * 2. ユーザーの言語（./locales/${targetLocale}.json）を動的フェッチ
+ * 3. 存在すればマージして欠損キーを補完、無ければフォールバックのまま動作
+ */
+export async function initI18n() {
+  const targetLocale = detectTargetLocale();
+
+  // 1. フォールバック辞書（en.json）をベースとしてロード
+  const fallbackDict = (await fetchLocaleJson(FALLBACK_LOCALE)) || {};
+
+  // 2. ターゲット言語の辞書を動的フェッチ
+  if (targetLocale === FALLBACK_LOCALE) {
+    dictionary = fallbackDict;
+    currentLocale = FALLBACK_LOCALE;
+  } else {
+    const targetDict = await fetchLocaleJson(targetLocale);
+    if (targetDict) {
+      // ターゲット言語が存在する場合は、欠損キーをフォールバックで補完して適用
+      dictionary = deepMerge(fallbackDict, targetDict);
+      currentLocale = targetLocale;
+    } else {
+      // 存在しない言語ファイルの場合はフォールバックをそのまま使用
+      console.warn(`[i18n] Locale "${targetLocale}.json" not found. Falling back to "${FALLBACK_LOCALE}".`);
+      dictionary = fallbackDict;
+      currentLocale = FALLBACK_LOCALE;
     }
   }
 
@@ -44,7 +93,8 @@ export async function initI18n() {
 }
 
 /**
- * 現在のロケール文字列（'ja' | 'en'）を取得
+ * 現在のロケール文字列（'ja' | 'en' | 'ko' ...）を取得
+ * @returns {string}
  */
 export function getLocale() {
   return currentLocale;
@@ -124,7 +174,9 @@ export function formatDateLocale(dateStr) {
   const month = d.getMonth() + 1;
   const day = d.getDate();
 
-  if (currentLocale === 'ja' || currentLocale === 'ko') {
+  // 辞書に date_format.jp が定義されているロケール（ja, ko等）はそちらを優先、それ以外は simple
+  const formatTemplate = t('date_format.jp');
+  if (formatTemplate && formatTemplate !== 'date_format.jp' && (currentLocale === 'ja' || currentLocale === 'ko' || currentLocale === 'zh')) {
     return t('date_format.jp', { year, month, day });
   } else {
     return t('date_format.simple', { year, month, day });
