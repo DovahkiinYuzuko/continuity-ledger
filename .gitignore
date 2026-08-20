@@ -2,6 +2,12 @@
 *
 !.gitignore
 # ---AUTO-Generated---
+# .gitignores/assets.gitignore
+!assets/
+!assets/icons/
+!assets/icons/**
+!assets/screenshots/
+!assets/screenshots/**
 # .gitignores/locales.gitignore
 !locales/
 !locales/**
@@ -12,6 +18,8 @@
 
 !index.html
 !style.css
+!sw.js
+!manifest.json
 # .gitignores/src.gitignore
 !src/
 !src/**

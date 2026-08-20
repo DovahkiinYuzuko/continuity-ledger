@@ -4,14 +4,15 @@
   "description": "「指定した金額を指定した間隔で貯め続けていたら、今頃いくらになっていたか」を淡々と表示するだけのカレンダーアプリ",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#f8f5ee",
-  "theme_color": "#1e1a14",
+  "background_color": "#efeae0",
+  "theme_color": "#2a2622",
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "screenshot.png",
-      "sizes": "192x192 512x512",
-      "type": "image/png"
+      "src": "assets/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
     }
   ]
 }
