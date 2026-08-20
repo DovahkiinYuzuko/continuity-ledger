@@ -8,6 +8,7 @@
 # .gitignores/root.gitignore
 !README.md
 !NOTICE.md
+!screenshot.png
 
 !index.html
 !style.css
