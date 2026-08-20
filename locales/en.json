@@ -1,13 +1,13 @@
 {
   "app": {
-    "title": "Tsundetara Daichou",
+    "title": "Continuity Ledger",
     "eyebrow": "CONTINUITY LEDGER",
-    "sub": "Had you continued, it would be this much today. Just a ledger."
+    "sub": "A retrospective ledger calculating accumulated amounts had you continued."
   },
   "tools": {
-    "notify": "Notify",
-    "notify_on": "ON (While open)",
-    "notify_off": "OFF",
+    "notify": "Notifications",
+    "notify_on": "Enabled (Active Session Only)",
+    "notify_off": "Disabled",
     "csv": "CSV",
     "json": "JSON",
     "json_import": "Import JSON"
@@ -16,30 +16,30 @@
     "label": "Grand Total"
   },
   "ledger": {
-    "empty": "No entries recorded yet.<br>Click the button below to record \"when\", \"how much\", and \"how often\",<br>and see how much you would have accumulated as of today.",
+    "empty": "No ledger entries recorded yet.<br>Click \"Record New Scenario\" to define a start date, amount, and interval,<br>and calculate your running total as of today.",
     "untitled": "Untitled",
-    "meta_format": "Since {start} · {amount} {currency} {interval} · {count} times",
+    "meta_format": "Since {start} · {amount} {currency} {interval} · {count} deposits",
     "pending": " (Pending +{amount})",
-    "target_reach": "Target {target} {currency}: {date} ({days} days left)",
-    "target_reached": "Target {target} {currency} reached",
-    "interrupts_empty": "No ad-hoc entries recorded",
-    "btn_copy": "Duplicate scenario",
+    "target_reach": "Target {target} {currency} estimated: {date} ({days} days remaining)",
+    "target_reached": "Target {target} {currency} achieved",
+    "interrupts_empty": "No ad-hoc entries recorded.",
+    "btn_copy": "Duplicate Scenario",
     "btn_share": "Share via URL",
     "btn_edit": "Edit",
     "btn_delete": "Delete",
-    "confirm_delete": "Delete this scenario? Ad-hoc entries will also be deleted.",
-    "btn_add_toggle": "+ Record a new \"Had I started then\""
+    "confirm_delete": "Are you sure you want to delete this scenario? Associated ad-hoc entries will also be permanently deleted.",
+    "btn_add_toggle": "+ Record New Scenario"
   },
   "form": {
     "title_new": "New Scenario",
     "title_edit": "Edit Scenario",
-    "btn_save_new": "Record",
+    "btn_save_new": "Save",
     "btn_save_edit": "Update",
     "btn_cancel": "Cancel",
-    "label_name": "Label (Optional)",
-    "placeholder_name": "e.g., Coffee savings, Daily habit",
+    "label_name": "Scenario Name (Optional)",
+    "placeholder_name": "e.g., Habitual Savings, Weekly Deposit",
     "label_start": "Start Date",
-    "label_amount": "Amount per interval",
+    "label_amount": "Amount per Interval",
     "placeholder_amount": "1000",
     "label_target_amount": "Target Amount (Optional, estimates reach date)",
     "placeholder_target_amount": "e.g., 100000",
@@ -49,25 +49,25 @@
     "interval_days": "Every n days",
     "interval_monthly_date": "Day d of each month",
     "interval_monthly_last": "Last day of each month",
-    "label_interval_days_num": "Interval in days",
+    "label_interval_days_num": "Interval in Days",
     "unit_days_every": "days",
-    "label_monthly_date_num": "Day of month",
+    "label_monthly_date_num": "Day of Month",
     "unit_monthly_prefix": "Day",
     "unit_monthly_suffix": "of each month",
-    "shortcut_month_start": "Start of month",
-    "shortcut_month_mid": "Mid month",
-    "shortcut_month_end": "End of month",
+    "shortcut_month_start": "Start of month (1st)",
+    "shortcut_month_mid": "Mid-month (15th)",
+    "shortcut_month_end": "End of month (Last)",
     "label_color": "Color Tag",
     "tooltip_color_add": "Add custom color",
-    "tooltip_color_limit": "Max {max} custom colors. Please delete some first.",
+    "tooltip_color_limit": "A maximum of {max} custom colors can be saved.",
     "tooltip_color_edit": "Manage custom colors",
-    "tooltip_color_cancel": "Finish editing",
-    "color_delete_prompt": "Select colors you want to delete",
+    "tooltip_color_cancel": "Exit color edit mode",
+    "color_delete_prompt": "Select colors to remove",
     "color_delete_count": "{count} selected",
     "btn_color_delete": "Delete",
-    "alert_color_limit": "You can keep up to {max} custom colors. Please delete some first.",
+    "alert_color_limit": "You can keep up to {max} custom colors. Please remove existing colors first.",
     "alert_invalid_input": "Please provide a valid start date and amount.",
-    "alert_invalid_interval": "Interval must be at least 1 day.",
+    "alert_invalid_interval": "Interval must be a positive number of at least 1 day.",
     "copy_suffix": " (Copy)"
   },
   "calendar": {
@@ -81,44 +81,44 @@
     "month_label": "{month}"
   },
   "day_detail": {
-    "empty_no_start": "No scenarios have started as of this date.",
+    "empty_no_start": "No scenarios have commenced on or prior to this date.",
     "interrupt_prefix": "└ Ad-hoc for {name}",
-    "times_count": " ({count} times)",
-    "interrupt_title": "Record an ad-hoc deposit on this date",
-    "placeholder_interrupt_amount": "Amount (e.g. 3000)",
-    "btn_interrupt_add": "Record ad-hoc",
-    "alert_interrupt_amount": "Please enter an amount."
+    "times_count": " (#{count})",
+    "interrupt_title": "Record Ad-Hoc Entry on this Date",
+    "placeholder_interrupt_amount": "Amount (e.g., 3000)",
+    "btn_interrupt_add": "Record Ad-Hoc",
+    "alert_interrupt_amount": "Please enter a valid amount."
   },
   "year_summary": {
-    "title": "{year} Running Ledger",
-    "empty": "No entries yet",
-    "count_format": " ({count} times)"
+    "title": "{year} Running Summary",
+    "empty": "No entries recorded",
+    "count_format": " ({count} entries)"
   },
   "chart": {
     "title": "Accumulation Trend Chart",
-    "subtitle": "Cumulative progress from start date (including upcoming schedule)",
+    "subtitle": "Cumulative progress from start date (including scheduled entries)",
     "empty": "No scenario data available",
     "tooltip_date": "{date}",
     "tooltip_total": "Total: {total} {currency}"
   },
   "export": {
-    "alert_empty": "No scenarios to export.",
-    "csv_filename": "Tsundetara_Daichou_{date}.csv",
-    "json_filename": "Tsundetara_Daichou_{date}.json",
+    "alert_empty": "No scenario records available to export.",
+    "csv_filename": "Continuity_Ledger_{date}.csv",
+    "json_filename": "Continuity_Ledger_{date}.json",
     "csv_header": ["Scenario Name", "Start Date", "Amount per Interval", "Currency", "Interval", "Cumulative Count Today", "Ad-hoc Total", "Cumulative Total Today", "Target Amount", "Target Date"],
     "csv_interrupt_section": "--- Ad-hoc Entries ---",
     "csv_interrupt_header": ["Scenario Name", "Date", "Ad-hoc Amount"]
   },
   "import": {
-    "alert_no_valid": "No valid scenario data found in this file.",
-    "confirm_mode": "Found {count} scenario(s).\nOK: Append to existing list\nCancel: Replace current list",
-    "confirm_replace": "This will overwrite all existing scenarios. Are you sure?",
-    "alert_success": "Import completed successfully.",
-    "alert_failed": "Failed to import. The file might be corrupted."
+    "alert_no_valid": "No valid scenario records found in this file.",
+    "confirm_mode": "Found {count} scenario record(s).\n\n[OK]: Append to existing ledger (Merge)\n[Cancel]: Overwrite existing ledger (Replace)",
+    "confirm_replace": "This will overwrite all existing scenario records. Are you sure you want to proceed?",
+    "alert_success": "Ledger data imported successfully.",
+    "alert_failed": "Failed to import ledger data. The file may be corrupt or invalid."
   },
   "share": {
     "alert_copy": "Share URL copied to clipboard.",
-    "prompt_copy": "Copy this URL:",
+    "prompt_copy": "Copy the following share URL:",
     "confirm_import": "Import shared scenario \"{label}\"?",
     "label_format": "{name} (since {start})"
   },

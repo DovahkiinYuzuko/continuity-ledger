@@ -1,10 +1,10 @@
-# 積んでたら台帳 / Tsundetara Daichou
+# 積んでたら台帳 / Continuity Ledger
 
 ![HTML5](https://img.shields.io/badge/HTML5-E34F26?style=flat-square&logo=html5&logoColor=white)
 ![CSS3](https://img.shields.io/badge/CSS3-1572B6?style=flat-square&logo=css3&logoColor=white)
 ![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=flat-square&logo=javascript&logoColor=black)
 
-「指定した金額を指定した間隔で貯め続けていたら、今頃いくらになっていたか」を淡々と表示するだけのカレンダーアプリ / A calendar app that simply shows how much you would have today, had you kept saving a fixed amount at a fixed interval.
+「指定した金額を指定した間隔で貯め続けていたら、今頃いくらになっていたか」を淡々と表示するだけのカレンダーアプリ / A retrospective calendar app that calculates how much money you would have accumulated today had you consistently saved a fixed amount at a regular interval.
 
 [日本語](#日本語) | [English](#english)
 
