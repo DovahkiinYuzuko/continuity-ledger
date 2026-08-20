@@ -1,3 +1,6 @@
+<div align="center">
+  <img src="./assets/icons/icon.svg" width="120" height="120" alt="積んでたら台帳 アイコン" style="border-radius: 26px;" />
+
 # 積んでたら台帳 / Continuity Ledger
 
 ![スクショ](./assets/screenshots/screenshot.png)
