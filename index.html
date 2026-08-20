@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>積んでたら台帳</title>
+<title data-i18n="app.title">積んでたら台帳</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -60,17 +60,30 @@
     <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
     <path d="M3 6h18" /><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
   </symbol>
+  <symbol id="icon-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+    <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+  </symbol>
+  <symbol id="icon-target" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="10" />
+    <circle cx="12" cy="12" r="6" />
+    <circle cx="12" cy="12" r="2" />
+  </symbol>
+  <symbol id="icon-trending-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
+    <polyline points="16 7 22 7 22 13" />
+  </symbol>
 </svg>
 <div class="wrap">
   <header>
-    <div class="eyebrow">CONTINUITY LEDGER</div>
-    <h1>積んでたら台帳</h1>
-    <div class="sub">続けてたら、今頃これだけ。ただの記帳。</div>
+    <div class="eyebrow" data-i18n="app.eyebrow">CONTINUITY LEDGER</div>
+    <h1 data-i18n="app.title">積んでたら台帳</h1>
+    <div class="sub" data-i18n="app.sub">続けてたら、今頃これだけ。ただの記帳。</div>
     <div class="header-tools">
-      <button class="tool-btn" id="notifyBtn"><svg class="icon"><use href="#icon-bell"/></svg> 通知 <span id="notifyState">オフ</span></button>
-      <button class="tool-btn" id="exportBtn"><svg class="icon"><use href="#icon-file-spreadsheet"/></svg> CSV</button>
-      <button class="tool-btn" id="exportJsonBtn"><svg class="icon"><use href="#icon-braces"/></svg> JSON</button>
-      <button class="tool-btn" id="importBtn"><svg class="icon"><use href="#icon-upload"/></svg> JSON読込</button>
+      <button class="tool-btn" id="notifyBtn"><svg class="icon"><use href="#icon-bell"/></svg> <span data-i18n="tools.notify">通知</span> <span id="notifyState" data-i18n="tools.notify_off">オフ</span></button>
+      <button class="tool-btn" id="exportBtn"><svg class="icon"><use href="#icon-file-spreadsheet"/></svg> <span data-i18n="tools.csv">CSV</span></button>
+      <button class="tool-btn" id="exportJsonBtn"><svg class="icon"><use href="#icon-braces"/></svg> <span data-i18n="tools.json">JSON</span></button>
+      <button class="tool-btn" id="importBtn"><svg class="icon"><use href="#icon-upload"/></svg> <span data-i18n="tools.json_import">JSON読込</span></button>
       <input type="file" id="importFile" accept="application/json" style="display:none">
     </div>
   </header>
@@ -79,113 +92,133 @@
 
   <div id="ledgerList" class="ledger-list"></div>
 
-  <button class="add-toggle" id="addToggle">＋ 新しい「もしあの日から」を記帳する</button>
+  <button class="add-toggle" id="addToggle" data-i18n="ledger.btn_add_toggle">＋ 新しい「もしあの日から」を記帳する</button>
 
   <div class="form-card" id="formCard">
-    <div class="form-title" id="formTitle">記帳内容</div>
+    <div class="form-title" id="formTitle" data-i18n="form.title_new">記帳内容</div>
     <div class="field-row">
       <div class="field full">
-        <label>呼び名（任意）</label>
-        <input type="text" id="fName" placeholder="例：コーヒー我慢分、コツコツ用">
+        <label data-i18n="form.label_name">呼び名（任意）</label>
+        <input type="text" id="fName" data-i18n-placeholder="form.placeholder_name" placeholder="例：コーヒー我慢分、コツコツ用">
       </div>
     </div>
     <div class="field-row">
       <div class="field">
-        <label>開始日</label>
+        <label data-i18n="form.label_start">開始日</label>
         <input type="date" id="fStart">
       </div>
       <div class="field">
-        <label>1回あたりの額</label>
-        <input type="text" inputmode="decimal" id="fAmount" placeholder="1000">
+        <label data-i18n="form.label_amount">1回あたりの額</label>
+        <input type="text" inputmode="decimal" id="fAmount" data-i18n-placeholder="form.placeholder_amount" placeholder="1000">
       </div>
     </div>
     <div class="field-row">
       <div class="field">
-        <label>通貨単位</label>
-        <input type="text" id="fCurrency" placeholder="円" value="円">
+        <label data-i18n="form.label_target_amount">目標金額（任意・到達日を試算）</label>
+        <input type="text" inputmode="decimal" id="fTargetAmount" data-i18n-placeholder="form.placeholder_target_amount" placeholder="例：100000">
+      </div>
+      <div class="field">
+        <label data-i18n="form.label_currency">通貨単位</label>
+        <input type="text" id="fCurrency" data-i18n-placeholder="form.default_currency" placeholder="円" value="円">
       </div>
     </div>
     <div class="field-row">
       <div class="field full">
-        <label>間隔のタイプ</label>
+        <label data-i18n="form.label_interval_type">間隔のタイプ</label>
         <select id="fIntervalType">
-          <option value="days">n日ごと</option>
-          <option value="monthlyDate">毎月d日</option>
-          <option value="monthlyLast">毎月末日</option>
+          <option value="days" data-i18n="form.interval_days">n日ごと</option>
+          <option value="monthlyDate" data-i18n="form.interval_monthly_date">毎月d日</option>
+          <option value="monthlyLast" data-i18n="form.interval_monthly_last">毎月末日</option>
         </select>
       </div>
     </div>
     <div class="field-row" id="daysIntervalRow">
       <div class="field full">
-        <label>何日ごと</label>
+        <label data-i18n="form.label_interval_days_num">何日ごと</label>
         <div class="interval-row">
           <input type="number" id="fInterval" min="1" value="1">
-          <span class="interval-unit-label">日ごと</span>
+          <span class="interval-unit-label" data-i18n="form.unit_days_every">日ごと</span>
         </div>
       </div>
     </div>
     <div class="field-row" id="monthlyDateRow" style="display:none">
       <div class="field full">
-        <label>毎月何日</label>
+        <label data-i18n="form.label_monthly_date_num">毎月何日</label>
         <div class="interval-row">
-          <span class="interval-unit-label">毎月</span>
+          <span class="interval-unit-label" data-i18n="form.unit_monthly_prefix">毎月</span>
           <input type="number" id="fMonthDay" min="1" max="31" value="1">
-          <span class="interval-unit-label">日（31日超の月は月末扱い）</span>
+          <span class="interval-unit-label" data-i18n="form.unit_monthly_suffix">日（31日超の月は月末扱い）</span>
         </div>
         <div class="shortcut-row">
-          <button type="button" class="shortcut-btn" data-day="1">月始め</button>
-          <button type="button" class="shortcut-btn" data-day="15">月半ば</button>
-          <button type="button" class="shortcut-btn" data-day="31">月末</button>
+          <button type="button" class="shortcut-btn" data-day="1" data-i18n="form.shortcut_month_start">月始め</button>
+          <button type="button" class="shortcut-btn" data-day="15" data-i18n="form.shortcut_month_mid">月半ば</button>
+          <button type="button" class="shortcut-btn" data-day="31" data-i18n="form.shortcut_month_end">月末</button>
         </div>
       </div>
     </div>
     <div class="field-row">
       <div class="field full">
-        <label>色タグ</label>
+        <label data-i18n="form.label_color">色タグ</label>
         <div class="color-picker" id="colorPicker"></div>
         <input type="color" id="customColor" class="custom-color-hidden-input">
       </div>
     </div>
     <div class="form-actions">
-      <button class="btn-secondary" id="cancelBtn">やめる</button>
-      <button class="btn-primary" id="saveBtn">記帳する</button>
+      <button class="btn-secondary" id="cancelBtn" data-i18n="form.btn_cancel">やめる</button>
+      <button class="btn-primary" id="saveBtn" data-i18n="form.btn_save_new">記帳する</button>
     </div>
   </div>
 
-  <div class="year-summary" id="yearSummary"></div>
-
-  <div class="cal-header">
-    <div class="cal-title-row">
-      <select id="jumpYear" class="jump-select"></select>
-      <select id="jumpMonth" class="jump-select"></select>
-      <button id="todayBtn" class="tool-btn" title="今月に戻る"><svg class="icon"><use href="#icon-rotate-ccw"/></svg></button>
-      <button id="yearViewBtn" class="tool-btn" title="年間プレビュー"><svg class="icon"><use href="#icon-calendar-check"/></svg></button>
+  <div class="cal-card">
+    <div class="cal-head">
+      <div class="cal-title-wrap">
+        <div class="cal-title" id="calTitle"></div>
+        <div class="cal-jump-controls">
+          <select id="jumpYear" class="cal-jump-select"></select>
+          <select id="jumpMonth" class="cal-jump-select"></select>
+        </div>
+      </div>
+      <div class="cal-nav">
+        <button class="cal-nav-btn" id="prevMonth" title="前へ"><svg class="icon"><use href="#icon-chevron-left"/></svg></button>
+        <button class="cal-nav-btn today-btn" id="todayBtn" data-i18n="calendar.today">今日</button>
+        <button class="cal-nav-btn year-view-btn" id="yearViewBtn" data-i18n="calendar.year_preview">年間</button>
+        <button class="cal-nav-btn" id="nextMonth" title="次へ"><svg class="icon"><use href="#icon-chevron-right"/></svg></button>
+      </div>
     </div>
-    <div class="cal-nav">
-      <button id="prevMonth"><svg class="icon"><use href="#icon-chevron-left"/></svg></button>
-      <div class="cal-title" id="calTitle">2026年 8月</div>
-      <button id="nextMonth"><svg class="icon"><use href="#icon-chevron-right"/></svg></button>
-    </div>
-  </div>
-  <div class="cal-grid" id="calGrid"></div>
-  <div class="year-grid" id="yearGrid" style="display:none"></div>
 
-  <div class="day-detail" id="dayDetail">
-    <div class="day-detail-date" id="dayDetailDate"></div>
-    <div id="dayDetailBody"></div>
-    <div class="interrupt-row" id="interruptRow">
-      <div class="interrupt-label">この日に割り込みで足す</div>
-      <div class="interrupt-form">
-        <select id="interruptScenario"></select>
-        <input type="number" id="interruptAmount" placeholder="金額" step="any">
-        <button id="interruptAdd">足す</button>
+    <div class="year-summary" id="yearSummary"></div>
+
+    <div class="cal-grid" id="calGrid"></div>
+    <div class="year-grid" id="yearGrid" style="display:none"></div>
+
+    <div class="day-detail" id="dayDetail">
+      <div class="day-detail-head">
+        <span class="day-detail-icon"><svg class="icon"><use href="#icon-calendar-check"/></svg></span>
+        <span class="day-detail-date" id="dayDetailDate"></span>
+      </div>
+      <div id="dayDetailBody"></div>
+      <div class="interrupt-row" id="interruptRow">
+        <div class="interrupt-title" data-i18n="day_detail.interrupt_title">この日に割り込み入金を記録する</div>
+        <div class="interrupt-inputs">
+          <select id="interruptScenario"></select>
+          <input type="text" inputmode="decimal" id="interruptAmount" data-i18n-placeholder="day_detail.placeholder_interrupt_amount" placeholder="金額（例：3000）">
+          <button class="interrupt-add-btn" id="interruptAdd" data-i18n="day_detail.btn_interrupt_add">割り込みを記録</button>
+        </div>
       </div>
     </div>
   </div>
 
-  <footer>すべての記帳はこの端末の中だけに残ります</footer>
+  <div class="chart-card">
+    <div class="chart-head">
+      <div class="chart-title"><svg class="icon"><use href="#icon-trending-up"/></svg> <span data-i18n="chart.title">積み上がり推移チャート</span></div>
+      <div class="chart-sub" data-i18n="chart.subtitle">開始日からの累計推移（今日＋今後の予定を含む）</div>
+    </div>
+    <div class="chart-container" id="chartContainer">
+      <canvas id="chartCanvas"></canvas>
+    </div>
+  </div>
 </div>
 
-<script src="app.js"></script>
+<script type="module" src="src/main.js"></script>
 </body>
 </html>

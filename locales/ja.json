@@ -1,0 +1,134 @@
+{
+  "app": {
+    "title": "積んでたら台帳",
+    "eyebrow": "CONTINUITY LEDGER",
+    "sub": "続けてたら、今頃これだけ。ただの記帳。"
+  },
+  "tools": {
+    "notify": "通知",
+    "notify_on": "オン（開いてる間だけ）",
+    "notify_off": "オフ",
+    "csv": "CSV",
+    "json": "JSON",
+    "json_import": "JSON読込"
+  },
+  "grand_total": {
+    "label": "全シナリオ合計"
+  },
+  "ledger": {
+    "empty": "まだ何も記帳されてません。<br>下のボタンから「いつから」「いくら」「どのくらいの間隔で」を記帳すると、<br>今日時点でいくらになってたかが積み上がって表示されます。",
+    "untitled": "無題",
+    "meta_format": "{start}から・{interval}に{amount}{currency}・{count}回分",
+    "pending": "（予定 +{amount}）",
+    "target_reach": "目標 {target}{currency} まで: {date}（あと{days}日）",
+    "target_reached": "目標 {target}{currency} 達成済み",
+    "interrupts_empty": "割り込みの記録はまだ無いよ",
+    "btn_copy": "シナリオを複製",
+    "btn_share": "URLで共有",
+    "btn_edit": "編集",
+    "btn_delete": "削除",
+    "confirm_delete": "この記帳を消す？割り込み記録も一緒に消えるよ",
+    "btn_add_toggle": "＋ 新しい「もしあの日から」を記帳する"
+  },
+  "form": {
+    "title_new": "記帳内容",
+    "title_edit": "記帳内容を編集",
+    "btn_save_new": "記帳する",
+    "btn_save_edit": "更新する",
+    "btn_cancel": "やめる",
+    "label_name": "呼び名（任意）",
+    "placeholder_name": "例：コーヒー我慢分、コツコツ用",
+    "label_start": "開始日",
+    "label_amount": "1回あたりの額",
+    "placeholder_amount": "1000",
+    "label_target_amount": "目標金額（任意・到達日を試算）",
+    "placeholder_target_amount": "例：100000",
+    "label_currency": "通貨単位",
+    "default_currency": "円",
+    "label_interval_type": "間隔のタイプ",
+    "interval_days": "n日ごと",
+    "interval_monthly_date": "毎月d日",
+    "interval_monthly_last": "毎月末日",
+    "label_interval_days_num": "何日ごと",
+    "unit_days_every": "日ごと",
+    "label_monthly_date_num": "毎月何日",
+    "unit_monthly_prefix": "毎月",
+    "unit_monthly_suffix": "日（31日超の月は月末扱い）",
+    "shortcut_month_start": "月始め",
+    "shortcut_month_mid": "月半ば",
+    "shortcut_month_end": "月末",
+    "label_color": "色タグ",
+    "tooltip_color_add": "カスタム色を追加",
+    "tooltip_color_limit": "カスタム色は{max}個まで。先に消してね",
+    "tooltip_color_edit": "カスタム色を整理する",
+    "tooltip_color_cancel": "編集をやめる",
+    "color_delete_prompt": "消したい色をタップして選んでね",
+    "color_delete_count": "{count}個選択中",
+    "btn_color_delete": "削除",
+    "alert_color_limit": "カスタム色は{max}個まで。先にいくつか消してね",
+    "alert_invalid_input": "開始日と金額をちゃんと入れてね",
+    "alert_invalid_interval": "間隔（日数）は1以上にしてね",
+    "copy_suffix": "（コピー）"
+  },
+  "calendar": {
+    "dow": ["日", "月", "火", "水", "木", "金", "土"],
+    "today": "今日",
+    "year_preview": "年間",
+    "jump_year": "{year}年",
+    "jump_month": "{month}月",
+    "month_title": "{year}年 {month}月",
+    "year_title": "{year}年",
+    "month_label": "{month}月"
+  },
+  "day_detail": {
+    "empty_no_start": "この日はまだどのシナリオも始まってません",
+    "interrupt_prefix": "└ {name}への割り込み",
+    "times_count": "（{count}回分）",
+    "interrupt_title": "この日に割り込み入金を記録する",
+    "placeholder_interrupt_amount": "金額（例：3000）",
+    "btn_interrupt_add": "割り込みを記録",
+    "alert_interrupt_amount": "金額を入れてね"
+  },
+  "year_summary": {
+    "title": "{year}年 これまでの記帳",
+    "empty": "まだ記録なし",
+    "count_format": "（{count}回分）"
+  },
+  "chart": {
+    "title": "積み上がり推移チャート",
+    "subtitle": "開始日からの累計推移（今日＋今後の予定を含む）",
+    "empty": "記帳データがありません",
+    "tooltip_date": "{date}",
+    "tooltip_total": "合計: {total}{currency}"
+  },
+  "export": {
+    "alert_empty": "まだ記帳が無いよ",
+    "csv_filename": "積んでたら台帳_{date}.csv",
+    "json_filename": "積んでたら台帳_{date}.json",
+    "csv_header": ["シナリオ名", "開始日", "1回あたりの額", "通貨", "間隔", "今日時点の累計回数", "割り込み合計", "今日時点の累計額", "目標金額", "目標到達日"],
+    "csv_interrupt_section": "--- 割り込み記録 ---",
+    "csv_interrupt_header": ["シナリオ名", "日付", "割り込み額"]
+  },
+  "import": {
+    "alert_no_valid": "読み込める記帳データが見つからなかったよ",
+    "confirm_mode": "{count}件の記帳が見つかった。\nOK: 今のリストに追加する\nキャンセル: 今のリストを置き換える",
+    "confirm_replace": "今の記帳を全部消して置き換える。本当にいい？",
+    "alert_success": "読み込み完了",
+    "alert_failed": "読み込みに失敗した。ファイルが壊れてるかも"
+  },
+  "share": {
+    "alert_copy": "共有URLをコピーしたよ",
+    "prompt_copy": "このURLをコピーしてね",
+    "confirm_import": "共有された記帳「{label}」を追加する？",
+    "label_format": "{name}（{start}から）"
+  },
+  "notify": {
+    "alert_unsupported": "この環境では通知が使えないみたい",
+    "alert_denied": "通知が許可されなかったよ",
+    "body": "今日は「{name}」の入金日ペースです"
+  },
+  "date_format": {
+    "jp": "{year}年{month}月{day}日",
+    "simple": "{year}/{month}/{day}"
+  }
+}

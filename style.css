@@ -761,6 +761,84 @@
   }
   .interrupt-form button:hover { background: var(--stamp-green); }
 
+  /* シナリオ複製ボタン */
+  .ledger-copy {
+    background: none;
+    border: none;
+    color: var(--ink-faint);
+    cursor: pointer;
+    padding: 3px 5px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .ledger-copy:hover { color: var(--gold); }
+
+  /* 目標金額バッジ */
+  .ledger-target-badge {
+    margin-top: 5px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-family: 'JetBrains Mono', 'Zen Kaku Gothic New', monospace;
+    color: var(--ink-soft);
+    background: #ece7db;
+    padding: 2px 7px;
+    border-radius: 2px;
+    border: 1px solid var(--paper-line);
+  }
+  .ledger-target-badge.reached {
+    background: #e1ebd9;
+    color: var(--stamp-green);
+    border-color: #bad3ab;
+  }
+  .ledger-target-badge .icon-sm {
+    width: 11px;
+    height: 11px;
+  }
+
+  /* チャートカード */
+  .chart-card {
+    margin-top: 28px;
+    background: var(--paper-card);
+    border: 1px solid var(--paper-line);
+    box-shadow: 3px 4px 0 var(--shadow);
+    padding: 20px;
+  }
+  .chart-head {
+    margin-bottom: 14px;
+  }
+  .chart-title {
+    font-family: 'Shippori Mincho', serif;
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+  .chart-title .icon {
+    width: 16px;
+    height: 16px;
+    color: var(--stamp-green);
+  }
+  .chart-sub {
+    font-size: 11px;
+    color: var(--ink-soft);
+    margin-top: 4px;
+  }
+  .chart-container {
+    width: 100%;
+    position: relative;
+    overflow: hidden;
+  }
+  #chartCanvas {
+    display: block;
+    width: 100%;
+    cursor: crosshair;
+  }
+
   footer {
     text-align: center;
     margin-top: 36px;
@@ -775,3 +853,4 @@
     .ledger-card summary { flex-direction: column; align-items: flex-start; gap: 8px; }
     .ledger-amount { text-align: left; }
   }
+

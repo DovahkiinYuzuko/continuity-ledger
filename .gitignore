@@ -2,6 +2,9 @@
 *
 !.gitignore
 # ---AUTO-Generated---
+# .gitignores/locales.gitignore
+!locales/
+!locales/**
 # .gitignores/root.gitignore
 !README.md
 !NOTICE.md
@@ -9,3 +12,6 @@
 !*.js
 !index.html
 !style.css
+# .gitignores/src.gitignore
+!src/
+!src/**
