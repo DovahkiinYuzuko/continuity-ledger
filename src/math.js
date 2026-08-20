@@ -197,7 +197,7 @@ export function* iterateFutureDays(scenario, startStr, maxDays = 36500) {
     const isDeposit = isDepositDay(scenario, dStr);
     const interruptAmount = interruptMap.get(dStr) || 0n;
 
-    if (isDeposit || interruptAmount > 0n) {
+    if (isDeposit || interruptAmount !== 0n) {
       yield { dateStr: dStr, isDeposit, interruptAmount };
     }
   }
