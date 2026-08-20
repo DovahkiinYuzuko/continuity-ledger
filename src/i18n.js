@@ -11,8 +11,10 @@ export async function initI18n() {
   const browserLang = (navigator.languages && navigator.languages[0]) || navigator.language || 'ja';
   let targetLocale = 'ja';
 
-  if (paramLang && (paramLang === 'ja' || paramLang === 'en')) {
+  if (paramLang && (paramLang === 'ja' || paramLang === 'en' || paramLang === 'ko')) {
     targetLocale = paramLang;
+  } else if (browserLang.startsWith('ko')) {
+    targetLocale = 'ko';
   } else if (browserLang.startsWith('en')) {
     targetLocale = 'en';
   } else {
@@ -122,7 +124,7 @@ export function formatDateLocale(dateStr) {
   const month = d.getMonth() + 1;
   const day = d.getDate();
 
-  if (currentLocale === 'ja') {
+  if (currentLocale === 'ja' || currentLocale === 'ko') {
     return t('date_format.jp', { year, month, day });
   } else {
     return t('date_format.simple', { year, month, day });
