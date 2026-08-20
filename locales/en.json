@@ -11,7 +11,9 @@
     "notify_off": "Disabled",
     "csv": "CSV",
     "json": "JSON",
-    "json_import": "Import JSON"
+    "json_import": "Import JSON",
+    "simulator": "Goal Calculator",
+    "ledger_drawer": "Ledger"
   },
   "grand_total": {
     "label": "Grand Total"
@@ -20,6 +22,7 @@
     "empty": "No ledger entries recorded yet.<br>Click \"Record New Scenario\" to define a start date, amount, and interval,<br>and calculate your running total as of today.",
     "untitled": "Untitled",
     "meta_format": "Since {start} · {amount} {currency} {interval} · {count} deposits",
+    "ended_meta": " (Ended {end})",
     "pending": " (Pending +{amount})",
     "target_reach": "Target {target} {currency} estimated: {date} ({days} days remaining)",
     "target_reached": "Target {target} {currency} achieved",
@@ -28,6 +31,8 @@
     "btn_share": "Share via URL",
     "btn_edit": "Edit",
     "btn_delete": "Delete",
+    "btn_move_up": "Move Up",
+    "btn_move_down": "Move Down",
     "confirm_delete": "Are you sure you want to delete this scenario? Associated ad-hoc entries will also be permanently deleted.",
     "btn_add_toggle": "+ Record New Scenario"
   },
@@ -40,6 +45,8 @@
     "label_name": "Scenario Name (Optional)",
     "placeholder_name": "e.g., Habitual Savings, Weekly Deposit",
     "label_start": "Start Date",
+    "label_end": "End Date (Optional)",
+    "placeholder_end": "None (Continuous)",
     "label_amount": "Amount per Interval",
     "placeholder_amount": "1000",
     "label_target_amount": "Target Amount (Optional, estimates reach date)",
@@ -68,6 +75,7 @@
     "btn_color_delete": "Delete",
     "alert_color_limit": "You can keep up to {max} custom colors. Please remove existing colors first.",
     "alert_invalid_input": "Please provide a valid start date and amount.",
+    "alert_invalid_end_date": "End date must be on or after start date.",
     "alert_invalid_interval": "Interval must be a positive number of at least 1 day.",
     "copy_suffix": " (Copy)"
   },
@@ -79,7 +87,8 @@
     "jump_month": "{month}",
     "month_title": "{month} {year}",
     "year_title": "{year}",
-    "month_label": "{month}"
+    "month_label": "{month}",
+    "tooltip_total": "Total: {total} {currency} ({count} entries)"
   },
   "day_detail": {
     "empty_no_start": "No scenarios have commenced on or prior to this date.",
@@ -95,18 +104,39 @@
     "empty": "No entries recorded",
     "count_format": " ({count} entries)"
   },
+  "simulator": {
+    "title": "Target Date Calculator",
+    "subtitle": "Calculates required amount per deposit to reach a target sum by your deadline",
+    "label_target_date": "Target Deadline",
+    "label_target_amount": "Target Amount",
+    "placeholder_target_amount": "e.g., 1000000",
+    "btn_calc": "Calculate Required Amount",
+    "result_title": "Simulation Result",
+    "result_required": "Required Per Deposit: {amount} {currency}",
+    "result_deposits_left": "Remaining Deposits until Target: {count}",
+    "result_current_projected": "Projected Total at Target with Current Plan: {projected} {currency}",
+    "result_already_reached": "Target amount ({target} {currency}) is already reached on or before this date.",
+    "result_no_deposits": "No deposit dates occur before the target deadline.",
+    "alert_invalid_params": "Please provide a valid deadline date and target amount."
+  },
   "chart": {
     "title": "Accumulation Trend Chart",
     "subtitle": "Cumulative progress from start date (including scheduled entries)",
     "empty": "No scenario data available",
     "tooltip_date": "{date}",
-    "tooltip_total": "Total: {total} {currency}"
+    "tooltip_total": "Total: {total} {currency}",
+    "period_1y": "1Y",
+    "period_3y": "3Y",
+    "period_5y": "5Y",
+    "period_all": "All",
+    "mode_line": "Line",
+    "mode_stack": "Stacked Area"
   },
   "export": {
     "alert_empty": "No scenario records available to export.",
     "csv_filename": "Continuity_Ledger_{date}.csv",
     "json_filename": "Continuity_Ledger_{date}.json",
-    "csv_header": ["Scenario Name", "Start Date", "Amount per Interval", "Currency", "Interval", "Cumulative Count Today", "Ad-hoc Total", "Cumulative Total Today", "Target Amount", "Target Date"],
+    "csv_header": ["Scenario Name", "Start Date", "End Date", "Amount per Interval", "Currency", "Interval", "Cumulative Count Today", "Ad-hoc Total", "Cumulative Total Today", "Target Amount", "Target Date"],
     "csv_interrupt_section": "--- Ad-hoc Entries ---",
     "csv_interrupt_header": ["Scenario Name", "Date", "Ad-hoc Amount"]
   },

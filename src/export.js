@@ -13,7 +13,7 @@ export function exportCsv(scenarios) {
   }
   const today = todayStr();
   const header = t('export.csv_header');
-  const rows = [Array.isArray(header) ? header : ['シナリオ名','開始日','1回あたりの額','通貨','間隔','今日時点の累計回数','割り込み合計','今日時点の累計額','目標金額','目標到達日']];
+  const rows = [Array.isArray(header) ? header : ['シナリオ名','開始日','終了日','1回あたりの額','通貨','間隔','今日時点の累計回数','割り込み合計','今日時点の累計額','目標金額','目標到達日']];
 
   scenarios.forEach(s => {
     const { count, total, interruptTotal } = totalAt(s, today);
@@ -30,6 +30,7 @@ export function exportCsv(scenarios) {
     rows.push([
       s.name || t('ledger.untitled'),
       s.start,
+      s.end || '',
       fromScaled(s.amountScaled),
       s.currency,
       intervalLabel(s),
@@ -100,7 +101,6 @@ export async function importJson(file, currentScenarios, onComplete) {
     const incoming = Array.isArray(payload) ? payload : payload.scenarios;
     if (!Array.isArray(incoming)) throw new Error('Invalid format');
 
-    // 必須フィールドの簡易バリデーション
     const valid = incoming.filter(s => s && s.start && s.amountScaled !== undefined);
     if (valid.length === 0) {
       alert(t('import.alert_no_valid'));
@@ -137,6 +137,7 @@ export function shareScenarioUrl(s) {
   const payload = {
     name: s.name,
     start: s.start,
+    end: s.end || null,
     amountScaled: s.amountScaled,
     targetAmountScaled: s.targetAmountScaled || null,
     currency: s.currency,
@@ -184,6 +185,7 @@ export async function checkShareParam(onImport) {
         id: genId(),
         name: payload.name || '',
         start: payload.start,
+        end: payload.end || null,
         amountScaled: payload.amountScaled,
         targetAmountScaled: payload.targetAmountScaled || null,
         currency: payload.currency || t('form.default_currency'),

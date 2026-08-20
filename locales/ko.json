@@ -11,7 +11,9 @@
     "notify_off": "비활성화",
     "csv": "CSV",
     "json": "JSON",
-    "json_import": "JSON 불러오기"
+    "json_import": "JSON 불러오기",
+    "simulator": "역산 시뮬레이터",
+    "ledger_drawer": "대장 목록"
   },
   "grand_total": {
     "label": "전체 시나리오 합계"
@@ -20,6 +22,7 @@
     "empty": "기록 데이터가 없습니다.<br>「＋ 새 시나리오 기록하기」에서 시작일·금액·간격을 설정하면,<br>현재까지의 예상 누적 금액이 표시됩니다.",
     "untitled": "제목 없음",
     "meta_format": "{start} 시작 · {interval} {amount}{currency} · 누적 {count}회",
+    "ended_meta": " ({end} 종료)",
     "pending": " (예정 +{amount})",
     "target_reach": "목표 {target}{currency} 도달 예정: {date} (남은 {days}일)",
     "target_reached": "목표 {target}{currency} 달성 완료",
@@ -28,7 +31,9 @@
     "btn_share": "URL로 공유",
     "btn_edit": "수정",
     "btn_delete": "삭제",
-    "confirm_delete": "이 시ナリオ를 삭제하시겠습니까? 관련된 추가 입금 기록도 함께 영구 삭제됩니다.",
+    "btn_move_up": "위로 이동",
+    "btn_move_down": "아래로 이동",
+    "confirm_delete": "이 시나리오를 삭제하시겠습니까? 관련된 추가 입금 기록도 함께 영구 삭제됩니다.",
     "btn_add_toggle": "＋ 새 시나리오 기록하기"
   },
   "form": {
@@ -40,6 +45,8 @@
     "label_name": "이름 (선택)",
     "placeholder_name": "예: 정기 저축, 적립 시뮬레이션",
     "label_start": "시작일",
+    "label_end": "종료일 (선택)",
+    "placeholder_end": "지정 없음 (계속)",
     "label_amount": "1회당 금액",
     "placeholder_amount": "1000",
     "label_target_amount": "목표 금액 (선택 · 도달일 예상)",
@@ -68,6 +75,7 @@
     "btn_color_delete": "삭제",
     "alert_color_limit": "사용자 지정 색상은 최대 {max}개까지입니다. 기존 색상을 먼저 삭제해 주세요.",
     "alert_invalid_input": "시작일과 금액을 올바르게 입력해 주세요.",
+    "alert_invalid_end_date": "종료일은 시작일 이후 날짜로 지정해 주세요.",
     "alert_invalid_interval": "간격은 1일 이상의 숫자로 지정해 주세요.",
     "copy_suffix": " (복제)"
   },
@@ -79,7 +87,8 @@
     "jump_month": "{month}월",
     "month_title": "{year}년 {month}월",
     "year_title": "{year}년",
-    "month_label": "{month}월"
+    "month_label": "{month}월",
+    "tooltip_total": "합계: {total} {currency} ({count}건)"
   },
   "day_detail": {
     "empty_no_start": "이 날짜 기준으로 시작된 시나리오가 없습니다.",
@@ -95,18 +104,39 @@
     "empty": "기록 없음",
     "count_format": " ({count}회)"
   },
+  "simulator": {
+    "title": "목표 기한 계산기",
+    "subtitle": "희망 기한까지 목표 금액을 달성하기 위한 1회당 필요 저축액을 역산합니다",
+    "label_target_date": "목표 기한",
+    "label_target_amount": "목표 금액",
+    "placeholder_target_amount": "예: 1000000",
+    "btn_calc": "필요 금액 역산",
+    "result_title": "시뮬레이션 결과",
+    "result_required": "1회당 필요 저축액: {amount} {currency}",
+    "result_deposits_left": "기한까지 남은 입금 횟수: {count} 회",
+    "result_current_projected": "현재 설정 기준 기한 도달 예상액: {projected} {currency}",
+    "result_already_reached": "지정 기한 기준으로 이미 목표 금액({target} {currency})에 도달했습니다.",
+    "result_no_deposits": "목표 기한까지 예정된 입금일이 없습니다.",
+    "alert_invalid_params": "목표 기한과 금액을 올바르게 지정해 주세요."
+  },
   "chart": {
     "title": "누적 추이 차트",
     "subtitle": "시작일부터의 누적 추이 (오늘 기준 및 향후 예정)",
     "empty": "기록 데이터가 없습니다.",
     "tooltip_date": "{date}",
-    "tooltip_total": "합계: {total}{currency}"
+    "tooltip_total": "합계: {total}{currency}",
+    "period_1y": "1년",
+    "period_3y": "3년",
+    "period_5y": "5년",
+    "period_all": "전체",
+    "mode_line": "꺾은선",
+    "mode_stack": "누적 영역"
   },
   "export": {
     "alert_empty": "출력할 기록 데이터가 없습니다.",
     "csv_filename": "쌓였다면_대장_{date}.csv",
     "json_filename": "쌓였다면_대장_{date}.json",
-    "csv_header": ["시나리오명", "시작일", "1회당 금액", "통화", "간격", "오늘 기준 누적 횟수", "추가 입금 합계", "오늘 기준 누적 금액", "목표 금액", "목표 도달 예정일"],
+    "csv_header": ["시나리오명", "시작일", "종료일", "1회당 금액", "통화", "간격", "오늘 기준 누적 횟수", "추가 입금 합계", "오늘 기준 누적 금액", "목표 금액", "목표 도달 예정일"],
     "csv_interrupt_section": "--- 추가 입금 기록 ---",
     "csv_interrupt_header": ["시나리오명", "날짜", "추가 입금액"]
   },

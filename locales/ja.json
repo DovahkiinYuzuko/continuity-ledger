@@ -11,7 +11,9 @@
     "notify_off": "無効",
     "csv": "CSV",
     "json": "JSON",
-    "json_import": "JSON読込"
+    "json_import": "JSON読込",
+    "simulator": "逆算シミュレーター",
+    "ledger_drawer": "台帳一覧"
   },
   "grand_total": {
     "label": "全シナリオ合計"
@@ -20,6 +22,7 @@
     "empty": "記帳データがありません。<br>「新しいシナリオを記帳する」から開始日・金額・間隔を設定すると、<br>現在までの試算累計額が表示されます。",
     "untitled": "無題",
     "meta_format": "{start}開始・{interval}に{amount}{currency}・累計{count}回",
+    "ended_meta": "（{end}終了）",
     "pending": "（予定 +{amount}）",
     "target_reach": "目標 {target}{currency} 到達予定: {date}（残り{days}日）",
     "target_reached": "目標 {target}{currency} 達成済み",
@@ -28,6 +31,8 @@
     "btn_share": "URLで共有",
     "btn_edit": "編集",
     "btn_delete": "削除",
+    "btn_move_up": "上へ移動",
+    "btn_move_down": "下へ移動",
     "confirm_delete": "このシナリオを削除しますか？関連する割り込み記録も同時に削除されます。",
     "btn_add_toggle": "＋ 新しいシナリオを記帳する"
   },
@@ -40,6 +45,8 @@
     "label_name": "名称（任意）",
     "placeholder_name": "例：定期貯金、積立シミュレーション",
     "label_start": "開始日",
+    "label_end": "終了日（任意）",
+    "placeholder_end": "指定なし（継続）",
     "label_amount": "1回あたりの金額",
     "placeholder_amount": "1000",
     "label_target_amount": "目標金額（任意・到達日を試算）",
@@ -68,6 +75,7 @@
     "btn_color_delete": "削除",
     "alert_color_limit": "カスタム色は最大{max}色までです。不要な色を削除してください。",
     "alert_invalid_input": "開始日と金額を正しく入力してください。",
+    "alert_invalid_end_date": "終了日は開始日以降の日付を指定してください。",
     "alert_invalid_interval": "間隔は1日以上の数値を指定してください。",
     "copy_suffix": "（複製）"
   },
@@ -79,7 +87,8 @@
     "jump_month": "{month}月",
     "month_title": "{year}年 {month}月",
     "year_title": "{year}年",
-    "month_label": "{month}月"
+    "month_label": "{month}月",
+    "tooltip_total": "合計: {total}{currency} ({count}件)"
   },
   "day_detail": {
     "empty_no_start": "この日付時点で開始されているシナリオはありません。",
@@ -95,18 +104,39 @@
     "empty": "記録なし",
     "count_format": "（{count}回）"
   },
+  "simulator": {
+    "title": "目標期日シミュレーター",
+    "subtitle": "希望の期日までに目標金額を貯めるための1回あたり必要額を逆算します",
+    "label_target_date": "目標期日",
+    "label_target_amount": "目標金額",
+    "placeholder_target_amount": "例：1000000",
+    "btn_calc": "必要額を逆算",
+    "result_title": "試算結果",
+    "result_required": "1回あたり必要積立額: {amount} {currency}",
+    "result_deposits_left": "期日までの残り入金回数: {count} 回",
+    "result_current_projected": "現行ペースでの期日到達見込: {projected} {currency}",
+    "result_already_reached": "指定期日時点で既に目標金額（{target} {currency}）に達しています。",
+    "result_no_deposits": "目標期日までの間に予定されている入金日がありません。",
+    "alert_invalid_params": "目標期日と目標金額を正しく指定してください。"
+  },
   "chart": {
     "title": "積み上がり推移チャート",
     "subtitle": "開始日からの累計推移（本日時点および将来予定）",
     "empty": "記帳データがありません",
     "tooltip_date": "{date}",
-    "tooltip_total": "合計: {total}{currency}"
+    "tooltip_total": "合計: {total}{currency}",
+    "period_1y": "1年",
+    "period_3y": "3年",
+    "period_5y": "5年",
+    "period_all": "全期間",
+    "mode_line": "折れ線",
+    "mode_stack": "積み上げ面"
   },
   "export": {
     "alert_empty": "出力対象の記帳データがありません。",
     "csv_filename": "積んでたら台帳_{date}.csv",
     "json_filename": "積んでたら台帳_{date}.json",
-    "csv_header": ["シナリオ名", "開始日", "1回あたりの額", "通貨", "間隔", "本日時点の累計回数", "割り込み合計", "本日時点の累計額", "目標金額", "目標到達予定日"],
+    "csv_header": ["シナリオ名", "開始日", "終了日", "1回あたりの額", "通貨", "間隔", "本日時点の累計回数", "割り込み合計", "本日時点の累計額", "目標金額", "目標到達予定日"],
     "csv_interrupt_section": "--- 割り込み記録 ---",
     "csv_interrupt_header": ["シナリオ名", "日付", "割り込み額"]
   },

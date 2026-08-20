@@ -13,7 +13,8 @@ import {
   totalAt,
   interruptsOn,
   intervalLabel,
-  calculateTargetDate
+  calculateTargetDate,
+  calculateRequiredAmountPerDeposit
 } from './math.js';
 import {
   DEFAULT_COLORS,
@@ -35,21 +36,25 @@ import {
   initChart,
   renderChart
 } from './chart.js';
+import {
+  STATES,
+  EVENTS,
+  fsm
+} from './fsm.js';
 
 let scenarios = [];
 let selectedColor = DEFAULT_COLORS[0];
 let customColors = [];
-let colorDeleteMode = false;
-let colorsMarkedForDelete = new Set();
-
-let viewYear, viewMonth; // viewMonth: 0-indexed
-let selectedDateStr = null;
-let editingId = null; // 編集中のシナリオID（null=新規）
-let yearViewOpen = false;
 
 let notifyEnabled = false;
 let notifyTimer = null;
 let notifiedToday = { date: '', ids: [] };
+
+// Pointer Events ドラッグ操作用
+let pointerStartX = 0;
+let pointerStartY = 0;
+let isPointerDragging = false;
+let pointerDeltaX = 0;
 
 /* ============ HTMLエスケープ ============ */
 function escapeHtml(str) {
@@ -95,7 +100,7 @@ function renderLedgerList() {
     return;
   }
   const today = todayStr();
-  list.innerHTML = scenarios.map(s => {
+  list.innerHTML = scenarios.map((s, index) => {
     const { count, total } = totalAt(s, today);
     const allInterrupts = (s.interrupts || []).slice().sort((a, b) => a.date < b.date ? -1 : 1);
     const futureInterrupts = allInterrupts.filter(iv => iv.date > today);
@@ -118,13 +123,14 @@ function renderLedgerList() {
       }
     }
 
+    const endedMeta = s.end ? ` ${t('ledger.ended_meta', { end: formatDateLocale(s.end) })}` : '';
     const metaText = t('ledger.meta_format', {
       start: formatDateLocale(s.start),
       interval: intervalLabel(s),
       amount: fromScaled(s.amountScaled),
       currency: escapeHtml(s.currency),
       count: count
-    });
+    }) + endedMeta;
 
     const interruptsBody = allInterrupts.length === 0
       ? `<div class="ledger-iv-empty">${escapeHtml(t('ledger.interrupts_empty'))}</div>`
@@ -141,6 +147,9 @@ function renderLedgerList() {
           `;
         }).join('');
 
+    const isFirst = index === 0;
+    const isLast = index === scenarios.length - 1;
+
     return `
       <details class="ledger-card" style="--tag-color:${s.color}">
         <summary>
@@ -154,6 +163,8 @@ function renderLedgerList() {
             ${pendingLabel}
           </div>
           <div class="ledger-actions">
+            ${!isFirst ? `<button class="ledger-move-up" data-index="${index}" title="${t('ledger.btn_move_up')}"><svg class="icon-sm"><use href="#icon-chevron-up"/></svg></button>` : ''}
+            ${!isLast ? `<button class="ledger-move-down" data-index="${index}" title="${t('ledger.btn_move_down')}"><svg class="icon-sm"><use href="#icon-chevron-down"/></svg></button>` : ''}
             <button class="ledger-copy" data-id="${s.id}" title="${t('ledger.btn_copy')}"><svg class="icon-sm"><use href="#icon-copy"/></svg></button>
             <button class="ledger-share" data-id="${s.id}" title="${t('ledger.btn_share')}"><svg class="icon-sm"><use href="#icon-share"/></svg></button>
             <button class="ledger-edit" data-id="${s.id}" title="${t('ledger.btn_edit')}"><svg class="icon-sm"><use href="#icon-pencil"/></svg></button>
@@ -165,7 +176,37 @@ function renderLedgerList() {
     `;
   }).join('');
 
-  // 複製（Duplicate）機能
+  // 並び替え: 上へ
+  list.querySelectorAll('.ledger-move-up').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const idx = parseInt(e.currentTarget.dataset.index, 10);
+      if (idx > 0) {
+        const item = scenarios.splice(idx, 1)[0];
+        scenarios.splice(idx - 1, 0, item);
+        storageSet(scenarios);
+        renderAll();
+      }
+    });
+  });
+
+  // 並び替え: 下へ
+  list.querySelectorAll('.ledger-move-down').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const idx = parseInt(e.currentTarget.dataset.index, 10);
+      if (idx < scenarios.length - 1) {
+        const item = scenarios.splice(idx, 1)[0];
+        scenarios.splice(idx + 1, 0, item);
+        storageSet(scenarios);
+        renderAll();
+      }
+    });
+  });
+
+  // 複製（Duplicate）
   list.querySelectorAll('.ledger-copy').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.preventDefault();
@@ -185,6 +226,7 @@ function renderLedgerList() {
     });
   });
 
+  // 削除
   list.querySelectorAll('.ledger-del').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.preventDefault();
@@ -197,15 +239,17 @@ function renderLedgerList() {
     });
   });
 
+  // 編集
   list.querySelectorAll('.ledger-edit').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
       const id = e.currentTarget.dataset.id;
-      openFormForEdit(id);
+      fsm.dispatch(EVENTS.OPEN_EDIT_FORM, { scenarioId: id });
     });
   });
 
+  // 共有
   list.querySelectorAll('.ledger-share').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.preventDefault();
@@ -216,6 +260,7 @@ function renderLedgerList() {
     });
   });
 
+  // 割り込み個別削除
   list.querySelectorAll('.ledger-iv-del').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.preventDefault();
@@ -234,9 +279,10 @@ function renderLedgerList() {
 
 /* ============ 描画: カレンダー ============ */
 function renderCalendar() {
+  const ctx = fsm.getContext();
   const title = document.getElementById('calTitle');
   if (title) {
-    title.textContent = t('calendar.month_title', { year: viewYear, month: viewMonth + 1 });
+    title.textContent = t('calendar.month_title', { year: ctx.viewYear, month: ctx.viewMonth + 1 });
   }
   syncJumpSelects();
 
@@ -246,16 +292,18 @@ function renderCalendar() {
 
   const dows = t('calendar.dow');
   const dowList = Array.isArray(dows) ? dows : ['日', '月', '火', '水', '木', '金', '土'];
-  dowList.forEach(d => {
+  dowList.forEach((d, idx) => {
     const el = document.createElement('div');
     el.className = 'cal-dow';
+    if (idx === 0) el.classList.add('sun');
+    if (idx === 6) el.classList.add('sat');
     el.textContent = d;
     grid.appendChild(el);
   });
 
-  const firstDay = new Date(viewYear, viewMonth, 1);
+  const firstDay = new Date(ctx.viewYear, ctx.viewMonth, 1);
   const startWeekday = firstDay.getDay();
-  const lastDate = new Date(viewYear, viewMonth + 1, 0).getDate();
+  const lastDate = new Date(ctx.viewYear, ctx.viewMonth + 1, 0).getDate();
   const today = todayStr();
 
   for (let i = 0; i < startWeekday; i++) {
@@ -264,160 +312,233 @@ function renderCalendar() {
     grid.appendChild(blank);
   }
 
+  const tooltipEl = document.getElementById('calTooltip');
+
   for (let day = 1; day <= lastDate; day++) {
-    const dateStr = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const dateStr = `${ctx.viewYear}-${String(ctx.viewMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const cellDate = new Date(ctx.viewYear, ctx.viewMonth, day);
+    const dayOfWeek = cellDate.getDay();
+
     const cell = document.createElement('div');
     cell.className = 'cal-cell';
+    if (dayOfWeek === 0) cell.classList.add('sun');
+    if (dayOfWeek === 6) cell.classList.add('sat');
     if (dateStr === today) cell.classList.add('today');
-    if (dateStr === selectedDateStr) cell.classList.add('selected');
+    if (dateStr === ctx.selectedDateStr) cell.classList.add('selected');
     cell.dataset.date = dateStr;
 
-    const marks = scenarios.filter(s => isDepositDay(s, dateStr));
+    const depositScenarios = scenarios.filter(s => isDepositDay(s, dateStr));
+    const interrupts = scenarios.flatMap(s => interruptsOn(s, dateStr).map(iv => ({ ...iv, scenarioName: s.name, currency: s.currency, color: s.color })));
+
     cell.innerHTML = `
       <div class="cal-daynum">${day}</div>
-      <div class="cal-marks">${marks.map(m => `<span class="cal-mark" style="background:${m.color}"></span>`).join('')}</div>
+      <div class="cal-marks">${depositScenarios.map(m => `<span class="cal-mark" style="background:${m.color}"></span>`).join('')}</div>
     `;
+
+    // ツールチップイベント
+    if (depositScenarios.length > 0 || interrupts.length > 0) {
+      cell.addEventListener('mouseenter', (e) => {
+        if (!tooltipEl) return;
+        const totalScaledSum = depositScenarios.reduce((sum, s) => sum + BigInt(s.amountScaled), 0n) +
+                               interrupts.reduce((sum, iv) => sum + BigInt(iv.amountScaled), 0n);
+        const cur = depositScenarios[0]?.currency || interrupts[0]?.currency || '';
+        const count = depositScenarios.length + interrupts.length;
+
+        tooltipEl.textContent = `${formatDateLocale(dateStr)}: ${t('calendar.tooltip_total', { total: fromScaled(totalScaledSum), currency: cur, count })}`;
+        tooltipEl.style.display = 'block';
+
+        const rect = cell.getBoundingClientRect();
+        tooltipEl.style.left = `${rect.left + rect.width / 2}px`;
+        tooltipEl.style.top = `${rect.top}px`;
+      });
+
+      cell.addEventListener('mouseleave', () => {
+        if (tooltipEl) tooltipEl.style.display = 'none';
+      });
+    }
+
     cell.addEventListener('click', () => {
-      selectedDateStr = (selectedDateStr === dateStr) ? null : dateStr;
-      renderCalendar();
-      renderDayDetail();
+      const nextDate = (ctx.selectedDateStr === dateStr) ? null : dateStr;
+      if (nextDate) {
+        fsm.dispatch(EVENTS.SELECT_DATE, { dateStr: nextDate });
+      } else {
+        fsm.dispatch(EVENTS.DESELECT_DATE);
+      }
     });
+
     grid.appendChild(cell);
   }
 }
 
-/* ============ 年月ジャンプ ============ */
+/* ============ 年月ジャンプ（1900年〜超長期動的スパン） ============ */
 function setupJumpSelects() {
   const yearSel = document.getElementById('jumpYear');
   const monthSel = document.getElementById('jumpMonth');
   if (!yearSel || !monthSel) return;
 
   const nowYear = new Date().getFullYear();
+  const minBaseYear = 1900; // 20世紀開始
+  let maxBaseYear = nowYear + 50;
+
+  // 登録シナリオの年を包含
+  scenarios.forEach(s => {
+    if (s.start) {
+      const sy = parseInt(s.start.slice(0, 4), 10);
+      if (sy > maxBaseYear) maxBaseYear = sy + 10;
+    }
+    if (s.end) {
+      const ey = parseInt(s.end.slice(0, 4), 10);
+      if (ey > maxBaseYear) maxBaseYear = ey + 10;
+    }
+  });
+
+  const ctx = fsm.getContext();
+  if (ctx.viewYear > maxBaseYear) maxBaseYear = ctx.viewYear + 10;
+  let startY = Math.min(minBaseYear, ctx.viewYear - 5);
+
   const yearRange = [];
-  for (let y = nowYear - 10; y <= nowYear + 10; y++) yearRange.push(y);
+  for (let y = startY; y <= maxBaseYear; y++) yearRange.push(y);
+
   yearSel.innerHTML = yearRange.map(y => `<option value="${y}">${t('calendar.jump_year', { year: y })}</option>`).join('');
   monthSel.innerHTML = Array.from({ length: 12 }, (_, i) => `<option value="${i}">${t('calendar.jump_month', { month: i + 1 })}</option>`).join('');
 
   yearSel.addEventListener('change', () => {
-    viewYear = parseInt(yearSel.value);
-    if (yearViewOpen) renderYearGrid(); else renderCalendar();
+    fsm.dispatch(EVENTS.SET_VIEW_YEAR, { year: parseInt(yearSel.value, 10) });
   });
   monthSel.addEventListener('change', () => {
-    viewMonth = parseInt(monthSel.value);
-    renderCalendar();
+    fsm.dispatch(EVENTS.SET_VIEW_MONTH, { month: parseInt(monthSel.value, 10) });
   });
 }
 
 function syncJumpSelects() {
   const yearSel = document.getElementById('jumpYear');
   const monthSel = document.getElementById('jumpMonth');
-  if (yearSel && yearSel.value !== String(viewYear)) yearSel.value = String(viewYear);
-  if (monthSel && monthSel.value !== String(viewMonth)) monthSel.value = String(viewMonth);
-  if (monthSel) monthSel.style.display = yearViewOpen ? 'none' : '';
+  const ctx = fsm.getContext();
+
+  if (yearSel) {
+    // 選択肢に現在のviewYearがない場合は動的にoptionを追加
+    if (!yearSel.querySelector(`option[value="${ctx.viewYear}"]`)) {
+      const opt = document.createElement('option');
+      opt.value = String(ctx.viewYear);
+      opt.textContent = t('calendar.jump_year', { year: ctx.viewYear });
+      yearSel.appendChild(opt);
+    }
+    if (yearSel.value !== String(ctx.viewYear)) yearSel.value = String(ctx.viewYear);
+  }
+  if (monthSel && monthSel.value !== String(ctx.viewMonth)) monthSel.value = String(ctx.viewMonth);
+  if (monthSel) monthSel.style.display = ctx.isYearView ? 'none' : '';
 }
 
 /* ============ 年間プレビュー ============ */
 function renderYearGrid() {
+  const ctx = fsm.getContext();
   const title = document.getElementById('calTitle');
-  if (title) title.textContent = t('calendar.year_title', { year: viewYear });
+  if (title) title.textContent = t('calendar.year_title', { year: ctx.viewYear });
   syncJumpSelects();
 
   const grid = document.getElementById('yearGrid');
   if (!grid) return;
   grid.innerHTML = '';
 
+  const today = todayStr();
+  const [currentY, currentM] = today.split('-').map(Number);
+
   for (let m = 0; m < 12; m++) {
-    const lastDate = new Date(viewYear, m + 1, 0).getDate();
-    const firstWeekday = new Date(viewYear, m, 1).getDay();
-    const isCurrentMonth = (viewYear === new Date().getFullYear() && m === new Date().getMonth());
-
-    let miniCells = '';
-    for (let i = 0; i < firstWeekday; i++) {
-      miniCells += `<div class="year-grid-mini-cell blank"></div>`;
+    const monthCard = document.createElement('div');
+    monthCard.className = 'year-grid-month';
+    if (ctx.viewYear === currentY && m === currentM - 1) {
+      monthCard.classList.add('current');
     }
-    for (let day = 1; day <= lastDate; day++) {
-      const dateStr = `${viewYear}-${String(m + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
+    const firstDay = new Date(ctx.viewYear, m, 1);
+    const startWeekday = firstDay.getDay();
+    const lastDate = new Date(ctx.viewYear, m + 1, 0).getDate();
+
+    let miniCellsHtml = '';
+    for (let b = 0; b < startWeekday; b++) {
+      miniCellsHtml += '<div class="year-grid-mini-cell blank"></div>';
+    }
+
+    for (let d = 1; d <= lastDate; d++) {
+      const dateStr = `${ctx.viewYear}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
       const hasDeposit = scenarios.some(s => isDepositDay(s, dateStr));
-      miniCells += `<div class="year-grid-mini-cell ${hasDeposit ? 'has-deposit' : ''}"></div>`;
+      miniCellsHtml += `<div class="year-grid-mini-cell ${hasDeposit ? 'has-deposit' : ''}" style="${hasDeposit ? `background:${scenarios.find(s => isDepositDay(s, dateStr))?.color || '#a4402f'}` : ''}"></div>`;
     }
 
-    const monthDiv = document.createElement('div');
-    monthDiv.className = `year-grid-month ${isCurrentMonth ? 'current' : ''}`;
-    monthDiv.innerHTML = `
+    monthCard.innerHTML = `
       <div class="year-grid-month-label">${t('calendar.month_label', { month: m + 1 })}</div>
-      <div class="year-grid-mini">${miniCells}</div>
+      <div class="year-grid-mini">${miniCellsHtml}</div>
     `;
-    monthDiv.addEventListener('click', () => {
-      viewMonth = m;
-      yearViewOpen = false;
-      document.getElementById('yearViewBtn').classList.remove('active');
-      document.getElementById('calGrid').style.display = 'grid';
-      document.getElementById('yearGrid').style.display = 'none';
-      renderCalendar();
+
+    monthCard.addEventListener('click', () => {
+      fsm.dispatch(EVENTS.SET_VIEW_MONTH, { month: m });
+      fsm.dispatch(EVENTS.TOGGLE_YEAR_VIEW);
     });
-    grid.appendChild(monthDiv);
+
+    grid.appendChild(monthCard);
   }
 }
 
 /* ============ 日付詳細パネル ============ */
 function renderDayDetail() {
   const panel = document.getElementById('dayDetail');
-  const interruptRow = document.getElementById('interruptRow');
-  if (!panel || !interruptRow) return;
+  const dateEl = document.getElementById('dayDetailDate');
+  const bodyEl = document.getElementById('dayDetailBody');
+  const interruptScenarioSel = document.getElementById('interruptScenario');
+  if (!panel || !dateEl || !bodyEl) return;
 
-  if (!selectedDateStr || scenarios.length === 0) {
+  const ctx = fsm.getContext();
+  if (!ctx.selectedDateStr) {
     panel.classList.remove('open');
     return;
   }
-  panel.classList.add('open');
-  document.getElementById('dayDetailDate').textContent = formatDateLocale(selectedDateStr);
-  const body = document.getElementById('dayDetailBody');
 
-  const relevant = scenarios.filter(s => selectedDateStr >= s.start);
-  if (relevant.length === 0) {
-    body.innerHTML = `<div class="day-detail-empty">${escapeHtml(t('day_detail.empty_no_start'))}</div>`;
+  panel.classList.add('open');
+  dateEl.textContent = formatDateLocale(ctx.selectedDateStr);
+
+  const activeScenariosOnDate = scenarios.filter(s => s.start <= ctx.selectedDateStr && (!s.end || s.end >= ctx.selectedDateStr));
+  if (activeScenariosOnDate.length === 0) {
+    bodyEl.innerHTML = `<div class="day-detail-empty">${escapeHtml(t('day_detail.empty_no_start'))}</div>`;
   } else {
-    body.innerHTML = relevant.map(s => {
-      const { count, total } = totalAt(s, selectedDateStr);
-      const isFuture = selectedDateStr > todayStr();
-      const todaysInterrupts = interruptsOn(s, selectedDateStr);
-      const interruptLines = todaysInterrupts.map(iv => `
-        <div class="interrupt-entry">
-          <span>${escapeHtml(t('day_detail.interrupt_prefix', { name: s.name || t('ledger.untitled') }))}</span>
-          <span><span class="amt">+${fromScaled(iv.amountScaled)}${escapeHtml(s.currency)}</span>
-          <button class="interrupt-del" data-sid="${s.id}" data-ivid="${iv.id}" title="${t('ledger.btn_delete')}"><svg class="icon-sm"><use href="#icon-x"/></svg></button></span>
+    bodyEl.innerHTML = activeScenariosOnDate.map(s => {
+      const isDeposit = isDepositDay(s, ctx.selectedDateStr);
+      const ivs = interruptsOn(s, ctx.selectedDateStr);
+      const currentCount = totalAt(s, ctx.selectedDateStr).count;
+
+      const regularRow = isDeposit
+        ? `<div class="day-entry">
+            <div class="day-entry-name">
+              <span class="day-entry-dot" style="background:${s.color}"></span>
+              <span>${escapeHtml(s.name || t('ledger.untitled'))}<span style="font-size:11px;color:var(--ink-faint);margin-left:4px">${t('day_detail.times_count', { count: currentCount })}</span></span>
+            </div>
+            <div class="day-entry-amt">+${fromScaled(s.amountScaled)}${escapeHtml(s.currency)}</div>
+          </div>`
+        : `<div class="day-entry">
+            <div class="day-entry-name">
+              <span class="day-entry-dot" style="background:${s.color};opacity:0.3"></span>
+              <span style="color:var(--ink-faint)">${escapeHtml(s.name || t('ledger.untitled'))}</span>
+            </div>
+            <div class="day-entry-amt pre">-</div>
+          </div>`;
+
+      const interruptRows = ivs.map(iv => `
+        <div class="day-entry" style="padding-left:14px">
+          <div class="day-entry-name" style="font-size:12px">
+            <span>${t('day_detail.interrupt_prefix', { name: escapeHtml(s.name || t('ledger.untitled')) })}</span>
+          </div>
+          <div class="day-entry-amt">+${fromScaled(iv.amountScaled)}${escapeHtml(s.currency)}</div>
         </div>
       `).join('');
-      return `
-        <div class="day-entry">
-          <div class="day-entry-name"><span class="day-entry-dot" style="background:${s.color}"></span>${escapeHtml(s.name || t('ledger.untitled'))}${t('day_detail.times_count', { count })}</div>
-          <div class="day-entry-amt ${isFuture ? 'pre' : ''}">${fromScaled(total)}${escapeHtml(s.currency)}</div>
-        </div>
-        ${interruptLines}
-      `;
+
+      return regularRow + interruptRows;
     }).join('');
   }
 
-  const select = document.getElementById('interruptScenario');
-  if (scenarios.length === 0) {
-    interruptRow.style.display = 'none';
-  } else {
-    interruptRow.style.display = 'block';
-    select.innerHTML = scenarios.map(s => `<option value="${s.id}">${escapeHtml(s.name || t('ledger.untitled'))}</option>`).join('');
+  if (interruptScenarioSel) {
+    interruptScenarioSel.innerHTML = scenarios.map(s =>
+      `<option value="${s.id}">${escapeHtml(s.name || t('ledger.untitled'))}</option>`
+    ).join('');
   }
-
-  body.querySelectorAll('.interrupt-del').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      const sid = e.currentTarget.dataset.sid;
-      const ivid = e.currentTarget.dataset.ivid;
-      const s = scenarios.find(sc => sc.id === sid);
-      if (s) {
-        s.interrupts = (s.interrupts || []).filter(iv => iv.id !== ivid);
-        storageSet(scenarios);
-        renderAll();
-      }
-    });
-  });
 }
 
 /* ============ 年間サマリー ============ */
@@ -429,8 +550,9 @@ function renderYearSummary() {
     return;
   }
   el.style.display = 'flex';
-  const yearStart = `${viewYear}-01-01`;
-  const yearEndCap = `${viewYear}-12-31`;
+  const ctx = fsm.getContext();
+  const yearStart = `${ctx.viewYear}-01-01`;
+  const yearEndCap = `${ctx.viewYear}-12-31`;
   const today = todayStr();
   const cutoff = today < yearEndCap ? today : yearEndCap;
 
@@ -454,361 +576,481 @@ function renderYearSummary() {
 
   const currencies = Object.keys(byCurrency);
   if (currencies.length === 0) {
-    el.innerHTML = `<span class="ys-label">${t('calendar.jump_year', { year: viewYear })}</span><span class="ys-nums">${escapeHtml(t('year_summary.empty'))}</span>`;
+    el.innerHTML = `<span class="ys-label">${t('calendar.jump_year', { year: ctx.viewYear })}</span><span class="ys-nums">${escapeHtml(t('year_summary.empty'))}</span>`;
     return;
   }
   const numsHtml = currencies.map(cur => {
     const d = byCurrency[cur];
     return `${fromScaled(d.total)}${escapeHtml(cur)}<span class="count">${t('year_summary.count_format', { count: d.count })}</span>`;
   }).join('　');
-  el.innerHTML = `<span class="ys-label">${escapeHtml(t('year_summary.title', { year: viewYear }))}</span><span class="ys-nums">${numsHtml}</span>`;
+  el.innerHTML = `<span class="ys-label">${escapeHtml(t('year_summary.title', { year: ctx.viewYear }))}</span><span class="ys-nums">${numsHtml}</span>`;
 }
 
 /* ============ カラーピッカー ============ */
 function setupColorPicker() {
+  const container = document.getElementById('colorPicker');
+  const customColorInput = document.getElementById('customColor');
+  if (!container) return;
+
   customColors = getCustomColors();
-  renderColorPicker();
+  const allColors = [...DEFAULT_COLORS, ...customColors];
+  const ctx = fsm.getContext();
+  const isDeleteMode = fsm.getState() === STATES.COLOR_DELETE;
 
-  document.getElementById('customColor').addEventListener('change', (e) => {
-    const color = e.target.value;
-    if (customColors.length >= MAX_CUSTOM_COLORS) {
-      alert(t('form.alert_color_limit', { max: MAX_CUSTOM_COLORS }));
-      return;
-    }
-    if (!customColors.includes(color) && !DEFAULT_COLORS.includes(color)) {
-      customColors.push(color);
-      saveCustomColors(customColors);
-    }
-    renderColorPicker();
-    setColorSelection(color);
-  });
-}
+  container.innerHTML = '';
+  allColors.forEach(color => {
+    const isCustom = !DEFAULT_COLORS.includes(color);
+    const isMarked = ctx.colorsMarkedForDelete.has(color);
+    const dot = document.createElement('div');
+    dot.className = 'color-dot';
+    dot.style.backgroundColor = color;
+    if (color === selectedColor && !isDeleteMode) dot.classList.add('selected');
 
-function renderColorPicker() {
-  const picker = document.getElementById('colorPicker');
-  if (!picker) return;
-  const atLimit = customColors.length >= MAX_CUSTOM_COLORS;
-
-  const presetDots = DEFAULT_COLORS.map(c =>
-    `<div class="color-dot" style="background:${c}" data-color="${c}"></div>`
-  ).join('');
-
-  const customDots = customColors.map(c => {
-    const marked = colorsMarkedForDelete.has(c);
-    return `
-      <div class="color-dot custom-dot ${colorDeleteMode ? 'delete-mode' : ''} ${marked ? 'marked' : ''}" style="background:${c}" data-color="${c}">
-        ${colorDeleteMode ? `<span class="dot-check"><svg class="icon-sm"><use href="#icon-check"/></svg></span>` : ''}
-      </div>
-    `;
-  }).join('');
-
-  const addTooltip = atLimit ? t('form.tooltip_color_limit', { max: MAX_CUSTOM_COLORS }) : t('form.tooltip_color_add');
-  const addBtn = `<button type="button" class="color-add-btn" id="colorAddBtn" title="${addTooltip}" ${atLimit ? 'disabled' : ''}><svg class="icon-sm"><use href="#icon-plus"/></svg></button>`;
-
-  const editTooltip = colorDeleteMode ? t('form.tooltip_color_cancel') : t('form.tooltip_color_edit');
-  const editBtn = customColors.length > 0
-    ? `<button type="button" class="color-edit-btn ${colorDeleteMode ? 'active' : ''}" id="colorEditBtn" title="${editTooltip}"><svg class="icon-sm"><use href="#${colorDeleteMode ? 'icon-x' : 'icon-pencil'}"/></svg></button>`
-    : '';
-
-  picker.innerHTML = presetDots + customDots + addBtn + editBtn;
-
-  picker.querySelectorAll('.color-dot').forEach(dot => {
-    dot.addEventListener('click', () => {
-      const color = dot.dataset.color;
-      if (colorDeleteMode && dot.classList.contains('custom-dot')) {
-        if (colorsMarkedForDelete.has(color)) {
-          colorsMarkedForDelete.delete(color);
+    if (isDeleteMode && isCustom) {
+      dot.style.outline = isMarked ? '2px solid var(--stamp-red)' : '1px dashed var(--ink-faint)';
+      dot.addEventListener('click', () => {
+        if (ctx.colorsMarkedForDelete.has(color)) {
+          ctx.colorsMarkedForDelete.delete(color);
         } else {
-          colorsMarkedForDelete.add(color);
+          ctx.colorsMarkedForDelete.add(color);
         }
-        renderColorPicker();
-      } else if (!colorDeleteMode) {
-        setColorSelection(color);
-      }
-    });
-  });
-
-  const addBtnEl = document.getElementById('colorAddBtn');
-  if (addBtnEl) {
-    addBtnEl.addEventListener('click', () => {
-      if (!atLimit) document.getElementById('customColor').click();
-    });
-  }
-
-  const editBtnEl = document.getElementById('colorEditBtn');
-  if (editBtnEl) {
-    editBtnEl.addEventListener('click', () => {
-      colorDeleteMode = !colorDeleteMode;
-      colorsMarkedForDelete.clear();
-      renderColorPicker();
-      renderDeleteBar();
-    });
-  }
-
-  renderDeleteBar();
-  highlightSelectedDot();
-}
-
-function renderDeleteBar() {
-  let bar = document.getElementById('colorDeleteBar');
-  if (!colorDeleteMode) {
-    if (bar) bar.remove();
-    return;
-  }
-  if (!bar) {
-    bar = document.createElement('div');
-    bar.id = 'colorDeleteBar';
-    bar.className = 'color-delete-bar';
-    document.getElementById('colorPicker').insertAdjacentElement('afterend', bar);
-  }
-  const count = colorsMarkedForDelete.size;
-  bar.innerHTML = `
-    <span class="color-delete-count">${count > 0 ? t('form.color_delete_count', { count }) : t('form.color_delete_prompt')}</span>
-    <button type="button" class="color-delete-confirm" id="colorDeleteConfirm" ${count === 0 ? 'disabled' : ''}>
-      <svg class="icon-sm"><use href="#icon-trash-2"/></svg> ${t('form.btn_color_delete')}
-    </button>
-  `;
-  const confirmBtn = document.getElementById('colorDeleteConfirm');
-  confirmBtn.addEventListener('click', () => {
-    if (colorsMarkedForDelete.size === 0) return;
-    const wasSelected = colorsMarkedForDelete.has(selectedColor);
-    customColors = customColors.filter(c => !colorsMarkedForDelete.has(c));
-    saveCustomColors(customColors);
-    colorsMarkedForDelete.clear();
-    colorDeleteMode = false;
-    renderColorPicker();
-    if (wasSelected) setColorSelection(DEFAULT_COLORS[0]);
-  });
-}
-
-function highlightSelectedDot() {
-  document.querySelectorAll('.color-dot').forEach(d => {
-    d.classList.toggle('selected', !colorDeleteMode && d.dataset.color === selectedColor);
-  });
-}
-
-function setColorSelection(color) {
-  selectedColor = color;
-  const known = DEFAULT_COLORS.includes(color) || customColors.includes(color);
-  if (!known) {
-    if (customColors.length < MAX_CUSTOM_COLORS) {
-      customColors.push(color);
-      saveCustomColors(customColors);
+        setupColorPicker();
+      });
+    } else {
+      dot.addEventListener('click', () => {
+        selectedColor = color;
+        setupColorPicker();
+      });
     }
-    renderColorPicker();
-    return;
+    container.appendChild(dot);
+  });
+
+  if (!isDeleteMode) {
+    if (customColors.length < MAX_CUSTOM_COLORS) {
+      const addBtn = document.createElement('button');
+      addBtn.type = 'button';
+      addBtn.className = 'color-action-btn';
+      addBtn.title = t('form.tooltip_color_add');
+      addBtn.innerHTML = '<svg class="icon-sm"><use href="#icon-plus"/></svg>';
+      addBtn.addEventListener('click', () => customColorInput?.click());
+      container.appendChild(addBtn);
+    }
+    if (customColors.length > 0) {
+      const editBtn = document.createElement('button');
+      editBtn.type = 'button';
+      editBtn.className = 'color-action-btn';
+      editBtn.title = t('form.tooltip_color_edit');
+      editBtn.innerHTML = '<svg class="icon-sm"><use href="#icon-trash-2"/></svg>';
+      editBtn.addEventListener('click', () => fsm.dispatch(EVENTS.ENTER_COLOR_DELETE));
+      container.appendChild(editBtn);
+    }
+  } else {
+    const delConfirmBtn = document.createElement('button');
+    delConfirmBtn.type = 'button';
+    delConfirmBtn.className = 'btn-primary';
+    delConfirmBtn.style.padding = '4px 10px';
+    delConfirmBtn.style.fontSize = '11px';
+    delConfirmBtn.textContent = `${t('form.btn_color_delete')} (${ctx.colorsMarkedForDelete.size})`;
+    delConfirmBtn.addEventListener('click', () => {
+      customColors = customColors.filter(c => !ctx.colorsMarkedForDelete.has(c));
+      saveCustomColors(customColors);
+      if (ctx.colorsMarkedForDelete.has(selectedColor)) selectedColor = DEFAULT_COLORS[0];
+      fsm.dispatch(EVENTS.EXIT_COLOR_DELETE);
+      setupColorPicker();
+    });
+    container.appendChild(delConfirmBtn);
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
+    cancelBtn.className = 'btn-secondary';
+    cancelBtn.style.padding = '4px 10px';
+    cancelBtn.style.fontSize = '11px';
+    cancelBtn.textContent = t('form.btn_cancel');
+    cancelBtn.addEventListener('click', () => {
+      fsm.dispatch(EVENTS.EXIT_COLOR_DELETE);
+      setupColorPicker();
+    });
+    container.appendChild(cancelBtn);
   }
-  highlightSelectedDot();
+
+  if (customColorInput) {
+    customColorInput.onchange = (e) => {
+      const newCol = e.target.value;
+      if (newCol && !allColors.includes(newCol)) {
+        customColors.push(newCol);
+        saveCustomColors(customColors);
+        selectedColor = newCol;
+        setupColorPicker();
+      }
+    };
+  }
 }
 
 /* ============ フォーム制御 ============ */
-function updateIntervalUI() {
-  const type = document.getElementById('fIntervalType').value;
-  document.getElementById('daysIntervalRow').style.display = (type === 'days') ? 'flex' : 'none';
-  document.getElementById('monthlyDateRow').style.display = (type === 'monthlyDate') ? 'flex' : 'none';
-}
+function openForm(scenarioId = null) {
+  const formCard = document.getElementById('formCard');
+  const title = document.getElementById('formTitle');
+  const saveBtn = document.getElementById('saveBtn');
+  if (!formCard) return;
 
-function syncShortcutButtons() {
-  const day = document.getElementById('fMonthDay').value;
-  document.querySelectorAll('.shortcut-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.day === day);
-  });
-}
+  formCard.classList.add('open');
+  const ctx = fsm.getContext();
 
-function resetForm() {
-  editingId = null;
-  document.getElementById('formTitle').textContent = t('form.title_new');
-  document.getElementById('saveBtn').textContent = t('form.btn_save_new');
-  document.getElementById('fName').value = '';
-  document.getElementById('fStart').value = todayStr();
-  document.getElementById('fAmount').value = '';
-  document.getElementById('fTargetAmount').value = '';
-  document.getElementById('fCurrency').value = t('form.default_currency');
-  document.getElementById('fIntervalType').value = 'days';
-  document.getElementById('fInterval').value = '1';
-  document.getElementById('fMonthDay').value = '1';
-  setColorSelection(DEFAULT_COLORS[0]);
-  updateIntervalUI();
-  syncShortcutButtons();
-}
+  if (scenarioId) {
+    const s = scenarios.find(sc => sc.id === scenarioId);
+    if (!s) return;
+    if (title) title.textContent = t('form.title_edit');
+    if (saveBtn) saveBtn.textContent = t('form.btn_save_edit');
 
-function openFormForNew() {
-  resetForm();
-  document.getElementById('formCard').classList.add('open');
-  document.getElementById('addToggle').style.display = 'none';
-}
+    document.getElementById('fName').value = s.name || '';
+    document.getElementById('fStart').value = s.start || '';
+    document.getElementById('fEnd').value = s.end || '';
+    document.getElementById('fAmount').value = fromScaled(s.amountScaled);
+    document.getElementById('fTargetAmount').value = s.targetAmountScaled ? fromScaled(s.targetAmountScaled) : '';
+    document.getElementById('fCurrency').value = s.currency || t('form.default_currency');
+    document.getElementById('fIntervalType').value = s.intervalType || 'days';
+    document.getElementById('fInterval').value = s.interval || 1;
+    document.getElementById('fMonthDay').value = s.monthDay || 1;
+    selectedColor = s.color || DEFAULT_COLORS[0];
+  } else {
+    if (title) title.textContent = t('form.title_new');
+    if (saveBtn) saveBtn.textContent = t('form.btn_save_new');
 
-function openFormForEdit(id) {
-  const s = scenarios.find(sc => sc.id === id);
-  if (!s) return;
-  editingId = id;
-  document.getElementById('formTitle').textContent = t('form.title_edit');
-  document.getElementById('saveBtn').textContent = t('form.btn_save_edit');
-  document.getElementById('fName').value = s.name || '';
-  document.getElementById('fStart').value = s.start;
-  document.getElementById('fAmount').value = fromScaled(s.amountScaled).replace(/,/g, '');
-  document.getElementById('fTargetAmount').value = s.targetAmountScaled ? fromScaled(s.targetAmountScaled).replace(/,/g, '') : '';
-  document.getElementById('fCurrency').value = s.currency;
-  document.getElementById('fIntervalType').value = s.intervalType;
-  document.getElementById('fInterval').value = s.interval || 1;
-  document.getElementById('fMonthDay').value = s.monthDay || 1;
-  setColorSelection(s.color);
-  updateIntervalUI();
-  syncShortcutButtons();
-  document.getElementById('formCard').classList.add('open');
-  document.getElementById('addToggle').style.display = 'none';
-  document.getElementById('formCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document.getElementById('fName').value = '';
+    document.getElementById('fStart').value = todayStr();
+    document.getElementById('fEnd').value = '';
+    document.getElementById('fAmount').value = '';
+    document.getElementById('fTargetAmount').value = '';
+    document.getElementById('fCurrency').value = t('form.default_currency');
+    document.getElementById('fIntervalType').value = 'days';
+    document.getElementById('fInterval').value = 1;
+    document.getElementById('fMonthDay').value = 1;
+    selectedColor = DEFAULT_COLORS[0];
+  }
+
+  updateIntervalFormVisibility();
+  setupColorPicker();
+  formCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function closeForm() {
-  document.getElementById('formCard').classList.remove('open');
-  document.getElementById('addToggle').style.display = 'block';
-  editingId = null;
+  const formCard = document.getElementById('formCard');
+  if (formCard) formCard.classList.remove('open');
+}
+
+function updateIntervalFormVisibility() {
+  const type = document.getElementById('fIntervalType')?.value;
+  const daysRow = document.getElementById('daysIntervalRow');
+  const monthRow = document.getElementById('monthlyDateRow');
+  if (daysRow) daysRow.style.display = (type === 'days') ? 'block' : 'none';
+  if (monthRow) monthRow.style.display = (type === 'monthlyDate') ? 'block' : 'none';
+}
+
+/* ============ 目標期日逆算シミュレーター ============ */
+function setupSimulator() {
+  const modal = document.getElementById('simulatorModal');
+  const openBtn = document.getElementById('simulatorBtn');
+  const closeBtn = document.getElementById('simCloseBtn');
+  const calcBtn = document.getElementById('simCalcBtn');
+  const targetDateInput = document.getElementById('simTargetDate');
+  const targetAmountInput = document.getElementById('simTargetAmount');
+  const resultCard = document.getElementById('simResult');
+
+  if (openBtn) {
+    openBtn.addEventListener('click', () => {
+      fsm.dispatch(EVENTS.OPEN_SIMULATOR);
+    });
+  }
+
+  if (closeBtn) {
+    closeBtn.addEventListener('click', () => {
+      fsm.dispatch(EVENTS.CLOSE_SIMULATOR);
+    });
+  }
+
+  if (modal) {
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) fsm.dispatch(EVENTS.CLOSE_SIMULATOR);
+    });
+  }
+
+  if (calcBtn && targetDateInput && targetAmountInput && resultCard) {
+    calcBtn.addEventListener('click', () => {
+      const deadline = targetDateInput.value;
+      const targetScaled = toScaled(targetAmountInput.value);
+
+      if (!deadline || !targetScaled || targetScaled <= 0n) {
+        alert(t('simulator.alert_invalid_params'));
+        return;
+      }
+
+      if (scenarios.length === 0) {
+        alert(t('export.alert_empty'));
+        return;
+      }
+
+      // 最初のシナリオまたは合算シミュレーション
+      const targetScenario = scenarios[0];
+      const res = calculateRequiredAmountPerDeposit(targetScenario, targetScaled, deadline);
+
+      resultCard.style.display = 'block';
+      if (res.alreadyReached) {
+        resultCard.innerHTML = `
+          <div class="sim-result-item" style="color:var(--stamp-green)">
+            ${t('simulator.result_already_reached', { target: fromScaled(targetScaled), currency: targetScenario.currency })}
+          </div>
+        `;
+      } else if (res.noDeposits) {
+        resultCard.innerHTML = `
+          <div class="sim-result-item" style="color:var(--stamp-red)">
+            ${t('simulator.result_no_deposits')}
+          </div>
+        `;
+      } else {
+        resultCard.innerHTML = `
+          <div class="sim-result-item">
+            <span>${t('simulator.result_title')}</span>
+            <span class="num">${fromScaled(res.requiredPerDepositScaled)} ${targetScenario.currency}</span>
+          </div>
+          <div class="sim-result-item">
+            <span>${t('simulator.result_deposits_left', { count: res.remainingDeposits })}</span>
+          </div>
+          <div class="sim-result-item" style="font-size:11.5px;color:var(--ink-soft)">
+            ${t('simulator.result_current_projected', { projected: fromScaled(res.projectedTotalScaled), currency: targetScenario.currency })}
+          </div>
+        `;
+      }
+    });
+  }
+}
+
+/* ============ 全体描画 ============ */
+function renderAll() {
+  const ctx = fsm.getContext();
+  renderGrandTotal();
+  renderLedgerList();
+  renderYearSummary();
+  if (ctx.isYearView) {
+    renderYearGrid();
+  } else {
+    renderCalendar();
+  }
+  renderDayDetail();
+  renderChart(scenarios, ctx.chartPeriod, ctx.chartType);
 }
 
 /* ============ 通知機能 ============ */
 async function toggleNotify() {
-  if (!('Notification' in window)) {
-    alert(t('notify.alert_unsupported'));
-    return;
-  }
+  const btn = document.getElementById('notifyBtn');
+  const stateText = document.getElementById('notifyState');
   if (!notifyEnabled) {
+    if (!('Notification' in window)) {
+      alert(t('notify.alert_unsupported'));
+      return;
+    }
     const perm = await Notification.requestPermission();
     if (perm !== 'granted') {
       alert(t('notify.alert_denied'));
       return;
     }
     notifyEnabled = true;
-    startNotifyWatch();
+    if (btn) btn.classList.add('active');
+    if (stateText) stateText.textContent = t('tools.notify_on');
+    checkAndNotify();
+    notifyTimer = setInterval(checkAndNotify, 60000);
   } else {
     notifyEnabled = false;
+    if (btn) btn.classList.remove('active');
+    if (stateText) stateText.textContent = t('tools.notify_off');
     if (notifyTimer) clearInterval(notifyTimer);
   }
-  updateNotifyBtn();
 }
 
-function updateNotifyBtn() {
-  const btn = document.getElementById('notifyBtn');
-  const state = document.getElementById('notifyState');
-  if (notifyEnabled) {
-    btn.classList.add('active');
-    state.textContent = t('tools.notify_on');
-  } else {
-    btn.classList.remove('active');
-    state.textContent = t('tools.notify_off');
-  }
-}
-
-function startNotifyWatch() {
-  checkTodayDeposits(true);
-  notifyTimer = setInterval(() => checkTodayDeposits(false), 60 * 60 * 1000);
-}
-
-function checkTodayDeposits(isInitial) {
+function checkAndNotify() {
+  if (!notifyEnabled) return;
   const today = todayStr();
-  if (notifiedToday.date !== today) notifiedToday = { date: today, ids: [] };
-
+  if (notifiedToday.date !== today) {
+    notifiedToday = { date: today, ids: [] };
+  }
   scenarios.forEach(s => {
     if (isDepositDay(s, today) && !notifiedToday.ids.includes(s.id)) {
       notifiedToday.ids.push(s.id);
-      if (!isInitial) {
-        new Notification(t('app.title'), {
-          body: t('notify.body', { name: s.name || t('ledger.untitled') })
-        });
-      }
+      new Notification(t('app.title'), {
+        body: t('notify.body', { name: s.name || t('ledger.untitled') }),
+        icon: 'screenshot.png'
+      });
     }
   });
 }
 
-/* ============ 全体再描画 ============ */
-export function renderAll() {
-  renderGrandTotal();
-  renderLedgerList();
-  renderYearSummary();
-  if (yearViewOpen) {
-    renderYearGrid();
-  } else {
-    renderCalendar();
-  }
-  renderDayDetail();
-  renderChart(scenarios);
+/* ============ Pointer Events: PCドラッグ & スマホスワイプ ============ */
+function setupPointerSwipe() {
+  const wrapper = document.getElementById('calWrapper');
+  if (!wrapper) return;
+
+  wrapper.addEventListener('pointerdown', (e) => {
+    // ボタンやセルクリックとの干渉防止
+    if (e.target.closest('button') || e.target.closest('.cal-cell')) return;
+    pointerStartX = e.clientX;
+    pointerStartY = e.clientY;
+    isPointerDragging = true;
+    pointerDeltaX = 0;
+    wrapper.classList.add('dragging');
+    wrapper.setPointerCapture(e.pointerId);
+  });
+
+  wrapper.addEventListener('pointermove', (e) => {
+    if (!isPointerDragging) return;
+    pointerDeltaX = e.clientX - pointerStartX;
+    const dy = e.clientY - pointerStartY;
+    // 縦スクロールと横スワイプの優先判定
+    if (Math.abs(pointerDeltaX) > Math.abs(dy)) {
+      wrapper.style.transform = `translateX(${pointerDeltaX * 0.4}px)`;
+    }
+  });
+
+  const endDrag = (e) => {
+    if (!isPointerDragging) return;
+    isPointerDragging = false;
+    wrapper.classList.remove('dragging');
+    wrapper.style.transform = '';
+    try { wrapper.releasePointerCapture(e.pointerId); } catch (_) {}
+
+    // スワイプ距離閾値（50px）
+    if (pointerDeltaX > 50) {
+      fsm.dispatch(EVENTS.NAVIGATE_MONTH, { delta: -1 });
+    } else if (pointerDeltaX < -50) {
+      fsm.dispatch(EVENTS.NAVIGATE_MONTH, { delta: 1 });
+    }
+  };
+
+  wrapper.addEventListener('pointerup', endDrag);
+  wrapper.addEventListener('pointercancel', endDrag);
 }
 
-/* ============ イベントバインディング ============ */
-function setupEvents() {
-  document.getElementById('fIntervalType').addEventListener('change', updateIntervalUI);
+/* ============ キーボードナビゲーション ============ */
+function setupKeyboardNav() {
+  window.addEventListener('keydown', (e) => {
+    // フォーム入力中はスキップ
+    if (['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement?.tagName)) return;
 
+    if (e.key === 'ArrowLeft') {
+      fsm.dispatch(EVENTS.NAVIGATE_MONTH, { delta: -1 });
+    } else if (e.key === 'ArrowRight') {
+      fsm.dispatch(EVENTS.NAVIGATE_MONTH, { delta: 1 });
+    } else if (e.key === 'Home') {
+      fsm.dispatch(EVENTS.GO_TO_TODAY);
+    }
+  });
+}
+
+/* ============ イベント初期設定 ============ */
+function setupEvents() {
+  // FSM サブスクライブ
+  fsm.subscribe((state, ctx, event) => {
+    const formCard = document.getElementById('formCard');
+    const simModal = document.getElementById('simulatorModal');
+    const calGrid = document.getElementById('calGrid');
+    const yearGrid = document.getElementById('yearGrid');
+    const yearViewBtn = document.getElementById('yearViewBtn');
+
+    if (state === STATES.SCENARIO_FORM) {
+      openForm(ctx.editingScenarioId);
+    } else if (state !== STATES.COLOR_DELETE) {
+      closeForm();
+    }
+
+    if (state === STATES.SIMULATOR) {
+      if (simModal) simModal.style.display = 'flex';
+    } else {
+      if (simModal) simModal.style.display = 'none';
+    }
+
+    if (yearViewBtn) yearViewBtn.classList.toggle('active', ctx.isYearView);
+    if (calGrid) calGrid.style.display = ctx.isYearView ? 'none' : 'grid';
+    if (yearGrid) yearGrid.style.display = ctx.isYearView ? 'grid' : 'none';
+
+    renderAll();
+  });
+
+  // フォーム開閉トグル
+  document.getElementById('addToggle')?.addEventListener('click', () => {
+    fsm.dispatch(EVENTS.OPEN_CREATE_FORM);
+  });
+  document.getElementById('cancelBtn')?.addEventListener('click', () => {
+    fsm.dispatch(EVENTS.CLOSE_FORM);
+  });
+
+  // 間隔タイプ変更
+  document.getElementById('fIntervalType')?.addEventListener('change', updateIntervalFormVisibility);
+
+  // 日付ショートカット
   document.querySelectorAll('.shortcut-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.getElementById('fMonthDay').value = btn.dataset.day;
-      syncShortcutButtons();
+    btn.addEventListener('click', (e) => {
+      const day = e.target.dataset.day;
+      const input = document.getElementById('fMonthDay');
+      if (input) input.value = day;
     });
   });
 
-  document.getElementById('fMonthDay').addEventListener('input', syncShortcutButtons);
-
-  document.getElementById('addToggle').addEventListener('click', openFormForNew);
-  document.getElementById('cancelBtn').addEventListener('click', closeForm);
-
-  document.getElementById('saveBtn').addEventListener('click', () => {
+  // フォーム保存
+  document.getElementById('saveBtn')?.addEventListener('click', () => {
     const name = document.getElementById('fName').value.trim();
     const start = document.getElementById('fStart').value;
-    const amountRaw = document.getElementById('fAmount').value.trim();
-    const targetAmountRaw = document.getElementById('fTargetAmount').value.trim();
+    const end = document.getElementById('fEnd').value || null;
+    const amountScaled = toScaled(document.getElementById('fAmount').value);
+    const targetAmountScaled = toScaled(document.getElementById('fTargetAmount').value);
     const currency = document.getElementById('fCurrency').value.trim() || t('form.default_currency');
     const intervalType = document.getElementById('fIntervalType').value;
-    const interval = parseInt(document.getElementById('fInterval').value) || 1;
-    const monthDay = Math.min(31, Math.max(1, parseInt(document.getElementById('fMonthDay').value) || 1));
+    const interval = parseInt(document.getElementById('fInterval').value, 10);
+    const monthDay = parseInt(document.getElementById('fMonthDay').value, 10);
 
-    const amountScaled = toScaled(amountRaw);
     if (!start || amountScaled === null || amountScaled <= 0n) {
       alert(t('form.alert_invalid_input'));
       return;
     }
-    if (intervalType === 'days' && interval <= 0) {
+    if (end && end < start) {
+      alert(t('form.alert_invalid_end_date'));
+      return;
+    }
+    if (intervalType === 'days' && (isNaN(interval) || interval < 1)) {
       alert(t('form.alert_invalid_interval'));
       return;
     }
 
-    const targetAmountScaled = targetAmountRaw ? toScaled(targetAmountRaw)?.toString() || null : null;
-
-    if (editingId) {
-      const s = scenarios.find(sc => sc.id === editingId);
+    const ctx = fsm.getContext();
+    if (ctx.editingScenarioId) {
+      const s = scenarios.find(sc => sc.id === ctx.editingScenarioId);
       if (s) {
-        s.name = name;
-        s.start = start;
-        s.amountScaled = amountScaled.toString();
-        s.targetAmountScaled = targetAmountScaled;
-        s.currency = currency;
-        s.intervalType = intervalType;
-        s.interval = interval;
-        s.monthDay = monthDay;
-        s.color = selectedColor;
+        Object.assign(s, {
+          name, start, end,
+          amountScaled: amountScaled.toString(),
+          targetAmountScaled: targetAmountScaled ? targetAmountScaled.toString() : null,
+          currency, intervalType, interval, monthDay,
+          color: selectedColor
+        });
       }
     } else {
       scenarios.push({
         id: genId(),
-        name,
-        start,
+        name, start, end,
         amountScaled: amountScaled.toString(),
-        targetAmountScaled,
-        currency,
-        intervalType,
-        interval,
-        monthDay,
+        targetAmountScaled: targetAmountScaled ? targetAmountScaled.toString() : null,
+        currency, intervalType, interval, monthDay,
         color: selectedColor,
         interrupts: []
       });
     }
 
     storageSet(scenarios);
-    closeForm();
-    renderAll();
+    setupJumpSelects();
+    fsm.dispatch(EVENTS.CLOSE_FORM);
   });
 
   // 割り込み追加
-  document.getElementById('interruptAdd').addEventListener('click', () => {
-    if (!selectedDateStr) return;
+  document.getElementById('interruptAdd')?.addEventListener('click', () => {
+    const ctx = fsm.getContext();
+    if (!ctx.selectedDateStr) return;
     const sid = document.getElementById('interruptScenario').value;
     const amountScaled = toScaled(document.getElementById('interruptAmount').value);
     if (amountScaled === null || amountScaled === 0n) {
@@ -820,7 +1062,7 @@ function setupEvents() {
     if (!s.interrupts) s.interrupts = [];
     s.interrupts.push({
       id: genId(),
-      date: selectedDateStr,
+      date: ctx.selectedDateStr,
       amountScaled: amountScaled.toString()
     });
     storageSet(scenarios);
@@ -829,69 +1071,74 @@ function setupEvents() {
   });
 
   // ツールボタン
-  document.getElementById('notifyBtn').addEventListener('click', toggleNotify);
-  document.getElementById('exportBtn').addEventListener('click', () => exportCsv(scenarios));
-  document.getElementById('exportJsonBtn').addEventListener('click', () => exportJson(scenarios));
-  document.getElementById('importBtn').addEventListener('click', () => {
+  document.getElementById('notifyBtn')?.addEventListener('click', toggleNotify);
+  document.getElementById('exportBtn')?.addEventListener('click', () => exportCsv(scenarios));
+  document.getElementById('exportJsonBtn')?.addEventListener('click', () => exportJson(scenarios));
+  document.getElementById('importBtn')?.addEventListener('click', () => {
     document.getElementById('importFile').click();
   });
-  document.getElementById('importFile').addEventListener('change', (e) => {
+  document.getElementById('importFile')?.addEventListener('change', (e) => {
     importJson(e.target.files[0], scenarios, (updated) => {
       scenarios = updated;
+      storageSet(scenarios);
+      setupJumpSelects();
       renderAll();
     });
     e.target.value = '';
   });
 
   // カレンダー操作
-  document.getElementById('todayBtn').addEventListener('click', () => {
-    const now = new Date();
-    viewYear = now.getFullYear();
-    viewMonth = now.getMonth();
-    selectedDateStr = null;
-    if (yearViewOpen) renderYearGrid(); else renderCalendar();
-    renderDayDetail();
+  document.getElementById('todayBtn')?.addEventListener('click', () => {
+    fsm.dispatch(EVENTS.GO_TO_TODAY);
   });
 
-  document.getElementById('yearViewBtn').addEventListener('click', () => {
-    yearViewOpen = !yearViewOpen;
-    document.getElementById('yearViewBtn').classList.toggle('active', yearViewOpen);
-    document.getElementById('calGrid').style.display = yearViewOpen ? 'none' : 'grid';
-    document.getElementById('yearGrid').style.display = yearViewOpen ? 'grid' : 'none';
-    syncJumpSelects();
-    if (yearViewOpen) renderYearGrid(); else renderCalendar();
+  document.getElementById('yearViewBtn')?.addEventListener('click', () => {
+    fsm.dispatch(EVENTS.TOGGLE_YEAR_VIEW);
   });
 
-  document.getElementById('prevMonth').addEventListener('click', () => {
-    if (yearViewOpen) {
-      viewYear--;
-      renderYearGrid();
+  document.getElementById('prevMonth')?.addEventListener('click', () => {
+    const ctx = fsm.getContext();
+    if (ctx.isYearView) {
+      fsm.dispatch(EVENTS.SET_VIEW_YEAR, { year: ctx.viewYear - 1 });
     } else {
-      viewMonth--;
-      if (viewMonth < 0) { viewMonth = 11; viewYear--; }
-      renderCalendar();
+      fsm.dispatch(EVENTS.NAVIGATE_MONTH, { delta: -1 });
     }
   });
 
-  document.getElementById('nextMonth').addEventListener('click', () => {
-    if (yearViewOpen) {
-      viewYear++;
-      renderYearGrid();
+  document.getElementById('nextMonth')?.addEventListener('click', () => {
+    const ctx = fsm.getContext();
+    if (ctx.isYearView) {
+      fsm.dispatch(EVENTS.SET_VIEW_YEAR, { year: ctx.viewYear + 1 });
     } else {
-      viewMonth++;
-      if (viewMonth > 11) { viewMonth = 0; viewYear++; }
-      renderCalendar();
+      fsm.dispatch(EVENTS.NAVIGATE_MONTH, { delta: 1 });
     }
   });
+
+  // チャート期間フィルター & タイプ切り替え
+  document.querySelectorAll('.chart-period-group .chart-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      document.querySelectorAll('.chart-period-group .chart-btn').forEach(b => b.classList.remove('active'));
+      e.currentTarget.classList.add('active');
+      fsm.dispatch(EVENTS.SET_CHART_PERIOD, { period: e.currentTarget.dataset.period });
+    });
+  });
+
+  document.querySelectorAll('.chart-type-group .chart-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      document.querySelectorAll('.chart-type-group .chart-btn').forEach(b => b.classList.remove('active'));
+      e.currentTarget.classList.add('active');
+      fsm.dispatch(EVENTS.SET_CHART_TYPE, { type: e.currentTarget.dataset.type });
+    });
+  });
+
+  setupPointerSwipe();
+  setupKeyboardNav();
+  setupSimulator();
 }
 
 /* ============ アプリ初期化 ============ */
 async function init() {
   await initI18n();
-
-  const now = new Date();
-  viewYear = now.getFullYear();
-  viewMonth = now.getMonth();
 
   const canvas = document.getElementById('chartCanvas');
   const container = document.getElementById('chartContainer');
@@ -899,18 +1146,28 @@ async function init() {
     initChart(canvas, container);
   }
 
+  scenarios = storageGet();
   setupColorPicker();
   setupJumpSelects();
   setupEvents();
-
-  scenarios = storageGet();
   renderAll();
 
   await checkShareParam(async (newScenario) => {
     scenarios.push(newScenario);
     storageSet(scenarios);
+    setupJumpSelects();
     renderAll();
   });
+
+  // PWA Service Worker登録
+  if ('serviceWorker' in navigator && (window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+    try {
+      await navigator.serviceWorker.register('./sw.js');
+      console.debug('[PWA] Service Worker registered.');
+    } catch (err) {
+      console.debug('[PWA] Service Worker registration failed:', err);
+    }
+  }
 }
 
 init();

@@ -6,7 +6,8 @@ let chartCtx = null;
 let chartContainer = null;
 let activeScenarios = [];
 let hoverDateIndex = -1;
-let sampleCount = 0;
+let currentPeriod = 'all'; // '1y' | '3y' | '5y' | 'all'
+let currentChartType = 'line'; // 'line' | 'stack'
 
 /**
  * チャートの初期化
@@ -20,7 +21,7 @@ export function initChart(canvas, container) {
 
   // リサイズ監視
   const resizeObserver = new ResizeObserver(() => {
-    renderChart(activeScenarios);
+    renderChart(activeScenarios, currentPeriod, currentChartType);
   });
   resizeObserver.observe(container);
 
@@ -34,13 +35,18 @@ export function initChart(canvas, container) {
 /**
  * チャートを再描画
  * @param {Array} scenarios
+ * @param {string} [period='all']
+ * @param {string} [chartType='line']
  */
-export function renderChart(scenarios) {
+export function renderChart(scenarios, period = currentPeriod, chartType = currentChartType) {
   activeScenarios = scenarios || [];
+  currentPeriod = period;
+  currentChartType = chartType;
+
   if (!chartCanvas || !chartCtx || !chartContainer) return;
 
   const rect = chartContainer.getBoundingClientRect();
-  const width = Math.floor(rect.width);
+  const width = Math.max(300, Math.floor(rect.width));
   const height = 260; // グラフの高さ
 
   const dpr = window.devicePixelRatio || 1;
@@ -51,7 +57,6 @@ export function renderChart(scenarios) {
 
   chartCtx.resetTransform();
   chartCtx.scale(dpr, dpr);
-
   chartCtx.clearRect(0, 0, width, height);
 
   if (activeScenarios.length === 0) {
@@ -63,19 +68,24 @@ export function renderChart(scenarios) {
     return;
   }
 
-  // 1. 全シナリオの開始日の中で最古の日付を取得
+  // 1. サンプリング期間の決定
   const startDates = activeScenarios.map(s => s.start).sort();
-  const earliestStart = startDates[0];
+  let earliestStart = startDates[0];
   const today = todayStr();
-
-  // 開始日から今日（＋少し先の未来、例えば30日後）までの日付サンプリング点を生成
-  const startD = new Date(earliestStart + 'T00:00:00');
   const todayD = new Date(today + 'T00:00:00');
-  
-  // 開始から今日までの日数
+
+  if (period !== 'all') {
+    const yearsBack = period === '1y' ? 1 : period === '3y' ? 3 : 5;
+    const filterStartD = new Date(todayD);
+    filterStartD.setFullYear(filterStartD.getFullYear() - yearsBack);
+    const filterStartStr = `${filterStartD.getFullYear()}-${String(filterStartD.getMonth() + 1).padStart(2, '0')}-${String(filterStartD.getDate()).padStart(2, '0')}`;
+    if (filterStartStr > earliestStart) {
+      earliestStart = filterStartStr;
+    }
+  }
+
+  const startD = new Date(earliestStart + 'T00:00:00');
   const totalDays = Math.max(1, Math.floor((todayD - startD) / 86400000));
-  
-  // 最大サンプル数を100点程度に間引いて計算負荷を最適化
   const stepDays = Math.max(1, Math.floor(totalDays / 80));
   const sampleDates = [];
   let curr = new Date(startD);
@@ -87,9 +97,8 @@ export function renderChart(scenarios) {
   if (!sampleDates.includes(today)) {
     sampleDates.push(today);
   }
-  sampleCount = sampleDates.length;
 
-  // 各サンプル日における各シナリオの累計金額を計算
+  // 2. 各サンプリング日のシナリオ別金額計算
   const seriesData = activeScenarios.map(s => {
     const points = sampleDates.map(dateStr => {
       const { total } = totalAt(s, dateStr);
@@ -104,19 +113,28 @@ export function renderChart(scenarios) {
 
   // 最大値の算出
   let maxValue = 0;
-  seriesData.forEach(ser => {
-    ser.points.forEach(pt => {
-      if (pt.value > maxValue) maxValue = pt.value;
+  if (chartType === 'stack') {
+    for (let i = 0; i < sampleDates.length; i++) {
+      let sumAtI = 0;
+      seriesData.forEach(ser => {
+        sumAtI += ser.points[i].value;
+      });
+      if (sumAtI > maxValue) maxValue = sumAtI;
+    }
+  } else {
+    seriesData.forEach(ser => {
+      ser.points.forEach(pt => {
+        if (pt.value > maxValue) maxValue = pt.value;
+      });
     });
-  });
+  }
   if (maxValue === 0) maxValue = 100;
 
-  // 余白設定
   const padding = { top: 20, right: 30, bottom: 40, left: 60 };
   const plotWidth = width - padding.left - padding.right;
   const plotHeight = height - padding.top - padding.bottom;
 
-  // 2. Y軸グリッド線とラベル
+  // 3. Y軸グリッド線とラベル
   chartCtx.strokeStyle = 'rgba(0, 0, 0, 0.06)';
   chartCtx.lineWidth = 1;
   chartCtx.fillStyle = '#7c7468';
@@ -138,7 +156,7 @@ export function renderChart(scenarios) {
     chartCtx.fillText(formatted, padding.left - 8, y);
   }
 
-  // 3. X軸ラベル（最初、中間、今日）
+  // 4. X軸ラベル
   chartCtx.textAlign = 'center';
   chartCtx.textBaseline = 'top';
   const xLabels = [
@@ -152,44 +170,85 @@ export function renderChart(scenarios) {
     chartCtx.fillText(lbl.text, x, padding.top + plotHeight + 10);
   });
 
-  // 4. 各シナリオの折れ線・塗りつぶし描画
-  seriesData.forEach(ser => {
-    const color = ser.scenario.color || '#a4402f';
+  // 5. チャート描画（折れ線 または 積み上げ面）
+  if (chartType === 'stack') {
+    // 積み上げ面グラフ描画
+    let prevCumulative = new Array(sampleDates.length).fill(0);
 
-    // 塗りつぶしグラデーション（8桁HEXによるアルファ指定）
-    const grad = chartCtx.createLinearGradient(0, padding.top, 0, padding.top + plotHeight);
-    grad.addColorStop(0, `${color}33`);
-    grad.addColorStop(1, `${color}05`);
+    seriesData.forEach(ser => {
+      const color = ser.scenario.color || '#a4402f';
+      const currCumulative = prevCumulative.map((prev, idx) => prev + ser.points[idx].value);
 
-    chartCtx.beginPath();
-    ser.points.forEach((pt, idx) => {
-      const x = padding.left + (plotWidth * (idx / (sampleDates.length - 1)));
-      const y = padding.top + plotHeight - (plotHeight * (pt.value / maxValue));
-      if (idx === 0) chartCtx.moveTo(x, y);
-      else chartCtx.lineTo(x, y);
+      // 上限パス
+      chartCtx.beginPath();
+      for (let i = 0; i < sampleDates.length; i++) {
+        const x = padding.left + (plotWidth * (i / (sampleDates.length - 1)));
+        const y = padding.top + plotHeight - (plotHeight * (currCumulative[i] / maxValue));
+        if (i === 0) chartCtx.moveTo(x, y);
+        else chartCtx.lineTo(x, y);
+      }
+
+      // 下限（前の層）パスを逆順でつなぐ
+      for (let i = sampleDates.length - 1; i >= 0; i--) {
+        const x = padding.left + (plotWidth * (i / (sampleDates.length - 1)));
+        const y = padding.top + plotHeight - (plotHeight * (prevCumulative[i] / maxValue));
+        chartCtx.lineTo(x, y);
+      }
+      chartCtx.closePath();
+
+      chartCtx.fillStyle = `${color}40`;
+      chartCtx.fill();
+
+      // 上辺の境界線
+      chartCtx.beginPath();
+      for (let i = 0; i < sampleDates.length; i++) {
+        const x = padding.left + (plotWidth * (i / (sampleDates.length - 1)));
+        const y = padding.top + plotHeight - (plotHeight * (currCumulative[i] / maxValue));
+        if (i === 0) chartCtx.moveTo(x, y);
+        else chartCtx.lineTo(x, y);
+      }
+      chartCtx.strokeStyle = color;
+      chartCtx.lineWidth = 1.5;
+      chartCtx.stroke();
+
+      prevCumulative = currCumulative;
     });
+  } else {
+    // 通常の折れ線・塗りつぶし描画
+    seriesData.forEach(ser => {
+      const color = ser.scenario.color || '#a4402f';
 
-    // 塗りつぶしパスを閉じる
-    chartCtx.lineTo(padding.left + plotWidth, padding.top + plotHeight);
-    chartCtx.lineTo(padding.left, padding.top + plotHeight);
-    chartCtx.closePath();
-    chartCtx.fillStyle = grad;
-    chartCtx.fill();
+      const grad = chartCtx.createLinearGradient(0, padding.top, 0, padding.top + plotHeight);
+      grad.addColorStop(0, `${color}33`);
+      grad.addColorStop(1, `${color}05`);
 
-    // 境界線描画
-    chartCtx.beginPath();
-    ser.points.forEach((pt, idx) => {
-      const x = padding.left + (plotWidth * (idx / (sampleDates.length - 1)));
-      const y = padding.top + plotHeight - (plotHeight * (pt.value / maxValue));
-      if (idx === 0) chartCtx.moveTo(x, y);
-      else chartCtx.lineTo(x, y);
+      chartCtx.beginPath();
+      ser.points.forEach((pt, idx) => {
+        const x = padding.left + (plotWidth * (idx / (sampleDates.length - 1)));
+        const y = padding.top + plotHeight - (plotHeight * (pt.value / maxValue));
+        if (idx === 0) chartCtx.moveTo(x, y);
+        else chartCtx.lineTo(x, y);
+      });
+      chartCtx.lineTo(padding.left + plotWidth, padding.top + plotHeight);
+      chartCtx.lineTo(padding.left, padding.top + plotHeight);
+      chartCtx.closePath();
+      chartCtx.fillStyle = grad;
+      chartCtx.fill();
+
+      chartCtx.beginPath();
+      ser.points.forEach((pt, idx) => {
+        const x = padding.left + (plotWidth * (idx / (sampleDates.length - 1)));
+        const y = padding.top + plotHeight - (plotHeight * (pt.value / maxValue));
+        if (idx === 0) chartCtx.moveTo(x, y);
+        else chartCtx.lineTo(x, y);
+      });
+      chartCtx.strokeStyle = color;
+      chartCtx.lineWidth = 2;
+      chartCtx.stroke();
     });
-    chartCtx.strokeStyle = color;
-    chartCtx.lineWidth = 2;
-    chartCtx.stroke();
-  });
+  }
 
-  // 5. ホバー時の縦線＆ツールチップ描画
+  // 6. ホバー時の縦線＆ツールチップ描画
   if (hoverDateIndex >= 0 && hoverDateIndex < sampleDates.length) {
     const hoverX = padding.left + (plotWidth * (hoverDateIndex / (sampleDates.length - 1)));
     const hoverDateStr = sampleDates[hoverDateIndex];
@@ -202,93 +261,79 @@ export function renderChart(scenarios) {
     chartCtx.stroke();
     chartCtx.setLineDash([]);
 
-    // 各系列のホバー位置にポイントを描画
+    // ツールチップボックス
+    const tipLines = [
+      formatDateLocale(hoverDateStr)
+    ];
+
+    let grandTotalAtHover = 0n;
     seriesData.forEach(ser => {
       const pt = ser.points[hoverDateIndex];
-      const y = padding.top + plotHeight - (plotHeight * (pt.value / maxValue));
-      chartCtx.fillStyle = ser.scenario.color || '#a4402f';
-      chartCtx.beginPath();
-      chartCtx.arc(hoverX, y, 4, 0, Math.PI * 2);
-      chartCtx.fill();
-      chartCtx.strokeStyle = '#fff';
-      chartCtx.lineWidth = 1.5;
-      chartCtx.stroke();
+      tipLines.push(`${ser.scenario.name || t('ledger.untitled')}: ${fromScaled(pt.totalBigInt)}${ser.scenario.currency || ''}`);
+      grandTotalAtHover += pt.totalBigInt;
     });
 
-    renderTooltip(hoverX, padding.top, hoverDateStr, seriesData, hoverDateIndex, width);
+    if (seriesData.length > 1) {
+      tipLines.push(t('chart.tooltip_total', {
+        total: fromScaled(grandTotalAtHover),
+        currency: seriesData[0].scenario.currency || ''
+      }));
+    }
+
+    chartCtx.font = '12px "Zen Kaku Gothic New", sans-serif';
+    let maxTextW = 0;
+    tipLines.forEach(l => {
+      const w = chartCtx.measureText(l).width;
+      if (w > maxTextW) maxTextW = w;
+    });
+
+    const boxW = maxTextW + 16;
+    const boxH = tipLines.length * 18 + 12;
+    let boxX = hoverX + 10;
+    if (boxX + boxW > width - 10) boxX = hoverX - boxW - 10;
+    let boxY = padding.top + 10;
+
+    chartCtx.fillStyle = 'rgba(30, 26, 20, 0.88)';
+    chartCtx.beginPath();
+    chartCtx.roundRect(boxX, boxY, boxW, boxH, 6);
+    chartCtx.fill();
+
+    chartCtx.fillStyle = '#ffffff';
+    chartCtx.textAlign = 'left';
+    chartCtx.textBaseline = 'top';
+    tipLines.forEach((l, idx) => {
+      chartCtx.fillText(l, boxX + 8, boxY + 6 + (idx * 18));
+    });
   }
 }
 
 function handleMouseMove(e) {
-  if (activeScenarios.length === 0) return;
+  if (!chartCanvas || activeScenarios.length === 0) return;
   const rect = chartCanvas.getBoundingClientRect();
-  const x = e.clientX - rect.left;
-  updateHoverFromX(x, rect.width);
+  const mouseX = e.clientX - rect.left;
+  updateHover(mouseX, rect.width);
 }
 
 function handleTouchMove(e) {
-  if (activeScenarios.length === 0 || !e.touches[0]) return;
+  if (!chartCanvas || activeScenarios.length === 0 || !e.touches[0]) return;
   const rect = chartCanvas.getBoundingClientRect();
-  const x = e.touches[0].clientX - rect.left;
-  updateHoverFromX(x, rect.width);
+  const touchX = e.touches[0].clientX - rect.left;
+  updateHover(touchX, rect.width);
 }
 
-function updateHoverFromX(x, width) {
+function updateHover(x, width) {
   const padding = { left: 60, right: 30 };
   const plotWidth = width - padding.left - padding.right;
   if (x < padding.left || x > width - padding.right) {
     hoverDateIndex = -1;
-    renderChart(activeScenarios);
-    return;
+  } else {
+    const ratio = (x - padding.left) / plotWidth;
+    hoverDateIndex = Math.round(ratio * 80);
   }
-  const ratio = Math.max(0, Math.min(1, (x - padding.left) / plotWidth));
-  const maxIdx = Math.max(1, sampleCount - 1);
-  hoverDateIndex = Math.round(ratio * maxIdx);
-  renderChart(activeScenarios);
+  renderChart(activeScenarios, currentPeriod, currentChartType);
 }
 
 function handleMouseLeave() {
-  if (hoverDateIndex !== -1) {
-    hoverDateIndex = -1;
-    renderChart(activeScenarios);
-  }
-}
-
-function renderTooltip(x, yTop, dateStr, seriesData, sampleIdx, canvasWidth) {
-  const lines = [formatDateLocale(dateStr)];
-  seriesData.forEach(ser => {
-    const pt = ser.points[sampleIdx];
-    const name = ser.scenario.name || t('ledger.untitled');
-    const amt = fromScaled(pt.totalBigInt);
-    lines.push(`${name}: ${amt}${ser.scenario.currency || ''}`);
-  });
-
-  chartCtx.font = '11px "Zen Kaku Gothic New", sans-serif';
-  let maxTextW = 0;
-  lines.forEach(l => {
-    const w = chartCtx.measureText(l).width;
-    if (w > maxTextW) maxTextW = w;
-  });
-
-  const boxW = maxTextW + 16;
-  const boxH = lines.length * 16 + 10;
-  let boxX = x + 10;
-  if (boxX + boxW > canvasWidth - 10) {
-    boxX = x - boxW - 10;
-  }
-  const boxY = yTop + 10;
-
-  // ツールチップ背景
-  chartCtx.fillStyle = 'rgba(25, 23, 20, 0.9)';
-  chartCtx.beginPath();
-  chartCtx.roundRect(boxX, boxY, boxW, boxH, 6);
-  chartCtx.fill();
-
-  // ツールチップテキスト
-  chartCtx.textAlign = 'left';
-  chartCtx.textBaseline = 'top';
-  lines.forEach((l, idx) => {
-    chartCtx.fillStyle = idx === 0 ? '#d5cec2' : '#ffffff';
-    chartCtx.fillText(l, boxX + 8, boxY + 6 + idx * 16);
-  });
+  hoverDateIndex = -1;
+  renderChart(activeScenarios, currentPeriod, currentChartType);
 }
