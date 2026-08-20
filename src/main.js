@@ -175,106 +175,6 @@ function renderLedgerList() {
       </details>
     `;
   }).join('');
-
-  // 並び替え: 上へ
-  list.querySelectorAll('.ledger-move-up').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const idx = parseInt(e.currentTarget.dataset.index, 10);
-      if (idx > 0) {
-        const item = scenarios.splice(idx, 1)[0];
-        scenarios.splice(idx - 1, 0, item);
-        storageSet(scenarios);
-        renderAll();
-      }
-    });
-  });
-
-  // 並び替え: 下へ
-  list.querySelectorAll('.ledger-move-down').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const idx = parseInt(e.currentTarget.dataset.index, 10);
-      if (idx < scenarios.length - 1) {
-        const item = scenarios.splice(idx, 1)[0];
-        scenarios.splice(idx + 1, 0, item);
-        storageSet(scenarios);
-        renderAll();
-      }
-    });
-  });
-
-  // 複製（Duplicate）
-  list.querySelectorAll('.ledger-copy').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const id = e.currentTarget.dataset.id;
-      const target = scenarios.find(s => s.id === id);
-      if (!target) return;
-
-      const duplicated = {
-        ...JSON.parse(JSON.stringify(target)),
-        id: genId(),
-        name: (target.name ? target.name : t('ledger.untitled')) + t('form.copy_suffix')
-      };
-      scenarios.push(duplicated);
-      storageSet(scenarios);
-      renderAll();
-    });
-  });
-
-  // 削除
-  list.querySelectorAll('.ledger-del').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const id = e.currentTarget.dataset.id;
-      if (!confirm(t('ledger.confirm_delete'))) return;
-      scenarios = scenarios.filter(s => s.id !== id);
-      storageSet(scenarios);
-      renderAll();
-    });
-  });
-
-  // 編集
-  list.querySelectorAll('.ledger-edit').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const id = e.currentTarget.dataset.id;
-      fsm.dispatch(EVENTS.OPEN_EDIT_FORM, { scenarioId: id });
-    });
-  });
-
-  // 共有
-  list.querySelectorAll('.ledger-share').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const id = e.currentTarget.dataset.id;
-      const target = scenarios.find(s => s.id === id);
-      if (target) shareScenarioUrl(target);
-    });
-  });
-
-  // 割り込み個別削除
-  list.querySelectorAll('.ledger-iv-del').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const sid = e.currentTarget.dataset.sid;
-      const ivid = e.currentTarget.dataset.ivid;
-      const s = scenarios.find(sc => sc.id === sid);
-      if (s) {
-        s.interrupts = (s.interrupts || []).filter(iv => iv.id !== ivid);
-        storageSet(scenarios);
-        renderAll();
-      }
-    });
-  });
 }
 
 /* ============ 描画: カレンダー ============ */
@@ -1131,9 +1031,116 @@ function setupEvents() {
     });
   });
 
+  setupLedgerListEvents();
   setupPointerSwipe();
   setupKeyboardNav();
   setupSimulator();
+}
+
+/**
+ * シナリオ一覧のイベント委譲
+ */
+function setupLedgerListEvents() {
+  const list = document.getElementById('ledgerList');
+  if (!list) return;
+
+  list.addEventListener('click', (e) => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+
+    // 上へ移動
+    if (btn.classList.contains('ledger-move-up')) {
+      e.preventDefault();
+      e.stopPropagation();
+      const idx = parseInt(btn.dataset.index, 10);
+      if (idx > 0) {
+        const item = scenarios.splice(idx, 1)[0];
+        scenarios.splice(idx - 1, 0, item);
+        storageSet(scenarios);
+        renderAll();
+      }
+      return;
+    }
+
+    // 下へ移動
+    if (btn.classList.contains('ledger-move-down')) {
+      e.preventDefault();
+      e.stopPropagation();
+      const idx = parseInt(btn.dataset.index, 10);
+      if (idx < scenarios.length - 1) {
+        const item = scenarios.splice(idx, 1)[0];
+        scenarios.splice(idx + 1, 0, item);
+        storageSet(scenarios);
+        renderAll();
+      }
+      return;
+    }
+
+    // 複製
+    if (btn.classList.contains('ledger-copy')) {
+      e.preventDefault();
+      e.stopPropagation();
+      const id = btn.dataset.id;
+      const target = scenarios.find(s => s.id === id);
+      if (!target) return;
+
+      const duplicated = {
+        ...JSON.parse(JSON.stringify(target)),
+        id: genId(),
+        name: (target.name ? target.name : t('ledger.untitled')) + t('form.copy_suffix')
+      };
+      scenarios.push(duplicated);
+      storageSet(scenarios);
+      renderAll();
+      return;
+    }
+
+    // 削除
+    if (btn.classList.contains('ledger-del')) {
+      e.preventDefault();
+      e.stopPropagation();
+      const id = btn.dataset.id;
+      if (!confirm(t('ledger.confirm_delete'))) return;
+      scenarios = scenarios.filter(s => s.id !== id);
+      storageSet(scenarios);
+      renderAll();
+      return;
+    }
+
+    // 編集
+    if (btn.classList.contains('ledger-edit')) {
+      e.preventDefault();
+      e.stopPropagation();
+      const id = btn.dataset.id;
+      fsm.dispatch(EVENTS.OPEN_EDIT_FORM, { scenarioId: id });
+      return;
+    }
+
+    // 共有
+    if (btn.classList.contains('ledger-share')) {
+      e.preventDefault();
+      e.stopPropagation();
+      const id = btn.dataset.id;
+      const target = scenarios.find(s => s.id === id);
+      if (target) shareScenarioUrl(target);
+      return;
+    }
+
+    // 割り込み個別削除
+    if (btn.classList.contains('ledger-iv-del')) {
+      e.preventDefault();
+      e.stopPropagation();
+      const sid = btn.dataset.sid;
+      const ivid = btn.dataset.ivid;
+      const s = scenarios.find(sc => sc.id === sid);
+      if (s) {
+        s.interrupts = (s.interrupts || []).filter(iv => iv.id !== ivid);
+        storageSet(scenarios);
+        renderAll();
+      }
+      return;
+    }
+  });
 }
 
 /* ============ アプリ初期化 ============ */

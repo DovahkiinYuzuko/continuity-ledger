@@ -146,7 +146,10 @@ export function shareScenarioUrl(s) {
     monthDay: s.monthDay,
     color: s.color
   };
-  const encoded = encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify(payload)))));
+  
+  const bytes = new TextEncoder().encode(JSON.stringify(payload));
+  const bin = Array.from(bytes, b => String.fromCharCode(b)).join('');
+  const encoded = encodeURIComponent(btoa(bin));
   const url = `${window.location.origin}${window.location.pathname}?share=${encoded}`;
 
   if (navigator.share) {
@@ -171,9 +174,17 @@ export async function checkShareParam(onImport) {
   const encoded = params.get('share');
   if (!encoded) return;
   try {
-    const json = decodeURIComponent(escape(atob(decodeURIComponent(encoded))));
-    const payload = JSON.parse(json);
-    if (!payload.start || payload.amountScaled === undefined) return;
+    const raw = decodeURIComponent(encoded);
+    let payload = null;
+    try {
+      const bin = atob(raw);
+      const bytes = Uint8Array.from(bin, c => c.charCodeAt(0));
+      payload = JSON.parse(new TextDecoder().decode(bytes));
+    } catch {
+      payload = JSON.parse(raw);
+    }
+
+    if (!payload || !payload.start || payload.amountScaled === undefined) return;
 
     const label = t('share.label_format', {
       name: payload.name || t('ledger.untitled'),

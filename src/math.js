@@ -174,6 +174,36 @@ export function intervalLabel(s) {
 }
 
 /**
+ * 指定シナリオの未来の日付・入金有無・割り込み額を走査するジェネレータ
+ * @param {object} scenario
+ * @param {string} startStr 'YYYY-MM-DD'
+ * @param {number} [maxDays=36500] 最大日数（デフォルト約100年）
+ */
+export function* iterateFutureDays(scenario, startStr, maxDays = 36500) {
+  const allInterrupts = scenario.interrupts || [];
+  const interruptMap = new Map();
+  for (const iv of allInterrupts) {
+    if (iv.date > startStr) {
+      interruptMap.set(iv.date, (interruptMap.get(iv.date) || 0n) + BigInt(iv.amountScaled));
+    }
+  }
+
+  const curr = new Date(startStr + 'T00:00:00');
+  for (let i = 0; i < maxDays; i++) {
+    curr.setDate(curr.getDate() + 1);
+    const dStr = `${curr.getFullYear()}-${String(curr.getMonth() + 1).padStart(2, '0')}-${String(curr.getDate()).padStart(2, '0')}`;
+    if (scenario.end && dStr > scenario.end) break;
+
+    const isDeposit = isDepositDay(scenario, dStr);
+    const interruptAmount = interruptMap.get(dStr) || 0n;
+
+    if (isDeposit || interruptAmount > 0n) {
+      yield { dateStr: dStr, isDeposit, interruptAmount };
+    }
+  }
+}
+
+/**
  * 目標金額に達する予定日を試算・逆算する
  * @param {object} scenario
  * @param {bigint|string} targetAmountScaled
@@ -193,65 +223,17 @@ export function calculateTargetDate(scenario, targetAmountScaled) {
   const perDepositScaled = BigInt(scenario.amountScaled);
   if (perDepositScaled <= 0n) return null;
 
-  // 過去〜未来の既存割り込みを含めた累計でシミュレーション
-  const allInterrupts = scenario.interrupts || [];
-  
-  if (scenario.intervalType === 'days') {
-    let currentDate = new Date(today + 'T00:00:00');
-    const maxDate = new Date(currentDate.getTime() + 100 * 365 * 86400000);
-    let accumulated = currentTotal;
-    
-    currentDate.setDate(currentDate.getDate() + 1);
-    while (currentDate <= maxDate) {
-      const dStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`;
-      if (scenario.end && dStr > scenario.end) break;
+  let accumulated = currentTotal;
+  for (const step of iterateFutureDays(scenario, today)) {
+    if (step.isDeposit) accumulated += perDepositScaled;
+    accumulated += step.interruptAmount;
 
-      if (isDepositDay(scenario, dStr)) {
-        accumulated += perDepositScaled;
-      }
-      const ivs = allInterrupts.filter(iv => iv.date === dStr);
-      for (const iv of ivs) {
-        accumulated += BigInt(iv.amountScaled);
-      }
-
-      if (accumulated >= targetScaled) {
-        return {
-          reached: false,
-          targetDateStr: dStr,
-          remainingDays: daysBetween(today, dStr)
-        };
-      }
-      currentDate.setDate(currentDate.getDate() + 1);
-    }
-  } else {
-    const [tY, tM] = today.split('-').map(Number);
-    let y = tY, m = tM - 1;
-    let accumulated = currentTotal;
-
-    for (let monthOffset = 0; monthOffset < 1200; monthOffset++) {
-      const lastDay = daysInMonth(y, m);
-      const targetDay = scenario.intervalType === 'monthlyLast' ? lastDay : Math.min(scenario.monthDay, lastDay);
-      const dStr = `${y}-${String(m + 1).padStart(2, '0')}-${String(targetDay).padStart(2, '0')}`;
-
-      if (scenario.end && dStr > scenario.end) break;
-
-      if (dStr > today) {
-        accumulated += perDepositScaled;
-        const ivs = allInterrupts.filter(iv => iv.date === dStr);
-        for (const iv of ivs) {
-          accumulated += BigInt(iv.amountScaled);
-        }
-        if (accumulated >= targetScaled) {
-          return {
-            reached: false,
-            targetDateStr: dStr,
-            remainingDays: daysBetween(today, dStr)
-          };
-        }
-      }
-
-      m++;
-      if (m > 11) { m = 0; y++; }
+    if (accumulated >= targetScaled) {
+      return {
+        reached: false,
+        targetDateStr: step.dateStr,
+        remainingDays: daysBetween(today, step.dateStr)
+      };
     }
   }
 
@@ -278,25 +260,14 @@ export function calculateRequiredAmountPerDeposit(scenario, targetAmountScaled, 
   // 今日から期日までの定期入金予定回数を数える
   let remainingDeposits = 0;
   let futureInterruptTotal = 0n;
-  const allInterrupts = scenario.interrupts || [];
+  const totalDays = daysBetween(today, targetDeadlineStr);
 
-  const startD = new Date(today + 'T00:00:00');
-  startD.setDate(startD.getDate() + 1); // 明日以降
-  const endD = new Date(targetDeadlineStr + 'T00:00:00');
-
-  let curr = new Date(startD);
-  while (curr <= endD) {
-    const dStr = `${curr.getFullYear()}-${String(curr.getMonth() + 1).padStart(2, '0')}-${String(curr.getDate()).padStart(2, '0')}`;
-    if (scenario.end && dStr > scenario.end) break;
-
-    if (isDepositDay(scenario, dStr)) {
-      remainingDeposits++;
+  if (totalDays > 0) {
+    for (const step of iterateFutureDays(scenario, today, totalDays)) {
+      if (step.dateStr > targetDeadlineStr) break;
+      if (step.isDeposit) remainingDeposits++;
+      futureInterruptTotal += step.interruptAmount;
     }
-    const ivs = allInterrupts.filter(iv => iv.date === dStr);
-    for (const iv of ivs) {
-      futureInterruptTotal += BigInt(iv.amountScaled);
-    }
-    curr.setDate(curr.getDate() + 1);
   }
 
   // 現行ペースでの期日到達見込額
