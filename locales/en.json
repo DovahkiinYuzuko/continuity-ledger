@@ -2,7 +2,8 @@
   "app": {
     "title": "Continuity Ledger",
     "eyebrow": "CONTINUITY LEDGER",
-    "sub": "A retrospective ledger calculating accumulated amounts had you continued."
+    "sub": "A retrospective ledger calculating accumulated amounts had you continued.",
+    "footer": "All ledger entries remain stored locally on this device only."
   },
   "tools": {
     "notify": "Notifications",
