@@ -119,7 +119,7 @@ export async function importJson(file, currentScenarios, onComplete) {
       resultScenarios = currentScenarios.concat(merged);
     }
 
-    await storageSet(resultScenarios);
+    storageSet(resultScenarios);
     onComplete(resultScenarios);
     alert(t('import.alert_success'));
   } catch (err) {

@@ -40,15 +40,6 @@ export function fromScaled(scaled) {
   return (neg ? '-' : '') + out;
 }
 
-/**
- * スケール済みBigInt同士の乗算（回数などの整数と掛ける）
- * @param {bigint} scaled
- * @param {number|bigint} n
- * @returns {bigint}
- */
-export function mulScaledByInt(scaled, n) {
-  return scaled * BigInt(n);
-}
 
 /**
  * 今日の日付文字列（YYYY-MM-DD）を取得
@@ -147,7 +138,7 @@ export function countDepositsUpTo(scenario, dateStr) {
 export function totalAt(scenario, dateStr) {
   const count = countDepositsUpTo(scenario, dateStr);
   const amountScaled = BigInt(scenario.amountScaled);
-  const regularTotal = mulScaledByInt(amountScaled, count);
+  const regularTotal = amountScaled * BigInt(count);
   const interrupts = (scenario.interrupts || []).filter(iv => iv.date <= dateStr);
   const interruptTotal = interrupts.reduce((sum, iv) => sum + BigInt(iv.amountScaled), 0n);
   return { count, total: regularTotal + interruptTotal, interruptTotal };

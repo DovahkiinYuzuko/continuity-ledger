@@ -167,7 +167,7 @@ function renderLedgerList() {
 
   // 複製（Duplicate）機能
   list.querySelectorAll('.ledger-copy').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
+    btn.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
       const id = e.currentTarget.dataset.id;
@@ -180,19 +180,19 @@ function renderLedgerList() {
         name: (target.name ? target.name : t('ledger.untitled')) + t('form.copy_suffix')
       };
       scenarios.push(duplicated);
-      await storageSet(scenarios);
+      storageSet(scenarios);
       renderAll();
     });
   });
 
   list.querySelectorAll('.ledger-del').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
+    btn.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
       const id = e.currentTarget.dataset.id;
       if (!confirm(t('ledger.confirm_delete'))) return;
       scenarios = scenarios.filter(s => s.id !== id);
-      await storageSet(scenarios);
+      storageSet(scenarios);
       renderAll();
     });
   });
@@ -217,7 +217,7 @@ function renderLedgerList() {
   });
 
   list.querySelectorAll('.ledger-iv-del').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
+    btn.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
       const sid = e.currentTarget.dataset.sid;
@@ -225,7 +225,7 @@ function renderLedgerList() {
       const s = scenarios.find(sc => sc.id === sid);
       if (s) {
         s.interrupts = (s.interrupts || []).filter(iv => iv.id !== ivid);
-        await storageSet(scenarios);
+        storageSet(scenarios);
         renderAll();
       }
     });
@@ -407,13 +407,13 @@ function renderDayDetail() {
   }
 
   body.querySelectorAll('.interrupt-del').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
+    btn.addEventListener('click', (e) => {
       const sid = e.currentTarget.dataset.sid;
       const ivid = e.currentTarget.dataset.ivid;
       const s = scenarios.find(sc => sc.id === sid);
       if (s) {
         s.interrupts = (s.interrupts || []).filter(iv => iv.id !== ivid);
-        await storageSet(scenarios);
+        storageSet(scenarios);
         renderAll();
       }
     });
@@ -750,7 +750,7 @@ function setupEvents() {
   document.getElementById('addToggle').addEventListener('click', openFormForNew);
   document.getElementById('cancelBtn').addEventListener('click', closeForm);
 
-  document.getElementById('saveBtn').addEventListener('click', async () => {
+  document.getElementById('saveBtn').addEventListener('click', () => {
     const name = document.getElementById('fName').value.trim();
     const start = document.getElementById('fStart').value;
     const amountRaw = document.getElementById('fAmount').value.trim();
@@ -801,13 +801,13 @@ function setupEvents() {
       });
     }
 
-    await storageSet(scenarios);
+    storageSet(scenarios);
     closeForm();
     renderAll();
   });
 
   // 割り込み追加
-  document.getElementById('interruptAdd').addEventListener('click', async () => {
+  document.getElementById('interruptAdd').addEventListener('click', () => {
     if (!selectedDateStr) return;
     const sid = document.getElementById('interruptScenario').value;
     const amountScaled = toScaled(document.getElementById('interruptAmount').value);
@@ -823,7 +823,7 @@ function setupEvents() {
       date: selectedDateStr,
       amountScaled: amountScaled.toString()
     });
-    await storageSet(scenarios);
+    storageSet(scenarios);
     document.getElementById('interruptAmount').value = '';
     renderAll();
   });
@@ -903,12 +903,12 @@ async function init() {
   setupJumpSelects();
   setupEvents();
 
-  scenarios = await storageGet();
+  scenarios = storageGet();
   renderAll();
 
   await checkShareParam(async (newScenario) => {
     scenarios.push(newScenario);
-    await storageSet(scenarios);
+    storageSet(scenarios);
     renderAll();
   });
 }

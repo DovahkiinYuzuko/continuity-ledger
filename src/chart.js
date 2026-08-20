@@ -6,6 +6,7 @@ let chartCtx = null;
 let chartContainer = null;
 let activeScenarios = [];
 let hoverDateIndex = -1;
+let sampleCount = 0;
 
 /**
  * チャートの初期化
@@ -86,16 +87,16 @@ export function renderChart(scenarios) {
   if (!sampleDates.includes(today)) {
     sampleDates.push(today);
   }
+  sampleCount = sampleDates.length;
 
   // 各サンプル日における各シナリオの累計金額を計算
   const seriesData = activeScenarios.map(s => {
     const points = sampleDates.map(dateStr => {
       const { total } = totalAt(s, dateStr);
-      // グラフ描画用にはNumberへ変換（単位が共通でない場合も考慮しつつスケール正規化）
       return {
         date: dateStr,
         totalBigInt: total,
-        value: Number(total / 1000000n) + Number(total % 1000000n) / 1000000
+        value: Number(total) / 1e6
       };
     });
     return { scenario: s, points };
@@ -155,10 +156,10 @@ export function renderChart(scenarios) {
   seriesData.forEach(ser => {
     const color = ser.scenario.color || '#a4402f';
 
-    // 塗りつぶしグラデーション
+    // 塗りつぶしグラデーション（8桁HEXによるアルファ指定）
     const grad = chartCtx.createLinearGradient(0, padding.top, 0, padding.top + plotHeight);
-    grad.addColorStop(0, hexToRgba(color, 0.2));
-    grad.addColorStop(1, hexToRgba(color, 0.01));
+    grad.addColorStop(0, `${color}33`);
+    grad.addColorStop(1, `${color}05`);
 
     chartCtx.beginPath();
     ser.points.forEach((pt, idx) => {
@@ -241,8 +242,7 @@ function updateHoverFromX(x, width) {
     return;
   }
   const ratio = Math.max(0, Math.min(1, (x - padding.left) / plotWidth));
-  // 80点などのサンプルインデックスを計算
-  const maxIdx = Math.max(1, activeScenarios.length > 0 ? getSampleCount() - 1 : 1);
+  const maxIdx = Math.max(1, sampleCount - 1);
   hoverDateIndex = Math.round(ratio * maxIdx);
   renderChart(activeScenarios);
 }
@@ -252,17 +252,6 @@ function handleMouseLeave() {
     hoverDateIndex = -1;
     renderChart(activeScenarios);
   }
-}
-
-function getSampleCount() {
-  const startDates = activeScenarios.map(s => s.start).sort();
-  const earliestStart = startDates[0] || todayStr();
-  const startD = new Date(earliestStart + 'T00:00:00');
-  const todayD = new Date(todayStr() + 'T00:00:00');
-  const totalDays = Math.max(1, Math.floor((todayD - startD) / 86400000));
-  const stepDays = Math.max(1, Math.floor(totalDays / 80));
-  let count = Math.floor(totalDays / stepDays) + 1;
-  return count;
 }
 
 function renderTooltip(x, yTop, dateStr, seriesData, sampleIdx, canvasWidth) {
@@ -302,11 +291,4 @@ function renderTooltip(x, yTop, dateStr, seriesData, sampleIdx, canvasWidth) {
     chartCtx.fillStyle = idx === 0 ? '#d5cec2' : '#ffffff';
     chartCtx.fillText(l, boxX + 8, boxY + 6 + idx * 16);
   });
-}
-
-function hexToRgba(hex, alpha) {
-  let c = hex.replace('#', '');
-  if (c.length === 3) c = c.split('').map(x => x + x).join('');
-  const num = parseInt(c, 16);
-  return `rgba(${(num >> 16) & 255}, ${(num >> 8) & 255}, ${num & 255}, ${alpha})`;
 }

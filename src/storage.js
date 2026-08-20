@@ -24,9 +24,9 @@ export function genId() {
 
 /**
  * localStorageからシナリオ一覧を取得（旧フォーマットからの自動移行対応）
- * @returns {Promise<Array>}
+ * @returns {Array}
  */
-export async function storageGet() {
+export function storageGet() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) return JSON.parse(raw);
@@ -72,9 +72,8 @@ export function migrateFromV1(oldScenarios) {
 /**
  * localStorageへシナリオ一覧を保存
  * @param {Array} data
- * @returns {Promise<void>}
  */
-export async function storageSet(data) {
+export function storageSet(data) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   } catch (e) {
